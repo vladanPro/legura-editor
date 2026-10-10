@@ -17,6 +17,7 @@ pub enum DocumentError {
     InvalidRunCount,
     TooMuchText,
     InvalidText,
+    InvalidMarks,
 }
 
 impl fmt::Display for DocumentError {
@@ -29,6 +30,7 @@ impl fmt::Display for DocumentError {
             Self::InvalidRunCount => "Each paragraph requires text; document run limit is 512",
             Self::TooMuchText => "Document exceeds the text character limit",
             Self::InvalidText => "Document contains unsupported control characters",
+            Self::InvalidMarks => "Text marks must be unique bold or italic values",
         })
     }
 }
@@ -67,12 +69,15 @@ enum ParagraphKind {
 #[serde(deny_unknown_fields)]
 struct TextRun {
     text: String,
-    // No marks are supported in this slice; unknown values fail deserialization.
-    marks: Vec<UnsupportedMark>,
+    marks: Vec<Mark>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-enum UnsupportedMark {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum Mark {
+    Bold,
+    Italic,
+}
 
 /// Immutable proof that a document passed server-side validation.
 /// There is deliberately no Deserialize implementation or public raw constructor.
@@ -84,7 +89,7 @@ impl Document {
         if input.len() > MAX_JSON_BYTES {
             return Err(DocumentError::TooLarge);
         }
-        let raw: RawDocument =
+        let mut raw: RawDocument =
             serde_json::from_str(input).map_err(|_| DocumentError::InvalidStructure)?;
         if raw.version != 1 {
             return Err(DocumentError::UnsupportedVersion);
@@ -94,12 +99,17 @@ impl Document {
         }
         let mut runs = 0;
         let mut chars = 0;
-        for block in &raw.blocks {
+        for block in &mut raw.blocks {
             runs += block.children.len();
             if block.children.is_empty() || runs > MAX_RUNS {
                 return Err(DocumentError::InvalidRunCount);
             }
-            for run in &block.children {
+            for run in &mut block.children {
+                if run.marks.len() > 2 || (run.marks.len() == 2 && run.marks[0] == run.marks[1]) {
+                    return Err(DocumentError::InvalidMarks);
+                }
+                // Stable mark order makes equivalent combinations serialize/render identically.
+                run.marks.sort_unstable();
                 for character in run.text.chars() {
                     if character.is_control() && !matches!(character, '\n' | '\r' | '\t') {
                         return Err(DocumentError::InvalidText);
@@ -124,6 +134,12 @@ impl Document {
         for block in &self.0.blocks {
             html.push_str("<p>");
             for run in &block.children {
+                if run.marks.contains(&Mark::Bold) {
+                    html.push_str("<strong>");
+                }
+                if run.marks.contains(&Mark::Italic) {
+                    html.push_str("<em>");
+                }
                 for character in run.text.chars() {
                     match character {
                         '&' => html.push_str("&amp;"),
@@ -133,6 +149,12 @@ impl Document {
                         '\'' => html.push_str("&#39;"),
                         _ => html.push(character),
                     }
+                }
+                if run.marks.contains(&Mark::Italic) {
+                    html.push_str("</em>");
+                }
+                if run.marks.contains(&Mark::Bold) {
+                    html.push_str("</strong>");
                 }
             }
             html.push_str("</p>");
@@ -151,6 +173,75 @@ mod tests {
             {"type":"paragraph","children":[{"text":text,"marks":[]}]}
         ]})
         .to_string()
+    }
+
+    #[test]
+    fn inline_marks_are_safe_canonical_and_round_trip() {
+        for (marks, expected) in [
+            (json!([]), "<p>&lt;b&gt;&amp;</p>"),
+            (json!(["bold"]), "<p><strong>&lt;b&gt;&amp;</strong></p>"),
+            (json!(["italic"]), "<p><em>&lt;b&gt;&amp;</em></p>"),
+            (
+                json!(["italic", "bold"]),
+                "<p><strong><em>&lt;b&gt;&amp;</em></strong></p>",
+            ),
+        ] {
+            let mut raw: serde_json::Value = serde_json::from_str(&input("<b>&")).unwrap();
+            raw["blocks"][0]["children"][0]["marks"] = marks;
+            let doc = Document::parse_json(&raw.to_string()).unwrap();
+            assert_eq!(doc.render_html(), expected);
+            let serialized = doc.to_json().unwrap();
+            assert_eq!(
+                Document::parse_json(&serialized).unwrap().render_html(),
+                expected
+            );
+            if expected.contains("<strong><em>") {
+                assert!(serialized.contains("\"marks\":[\"bold\",\"italic\"]"));
+            }
+        }
+        let raw = json!({"format":"legura-richtext","version":1,"blocks":[
+            {"type":"paragraph","children":[
+                {"text":"A","marks":["bold"]},
+                {"text":"B","marks":[]},
+                {"text":"C","marks":["italic"]}
+            ]},
+            {"type":"paragraph","children":[{"text":"D","marks":[]}]}
+        ]});
+        assert_eq!(
+            Document::parse_json(&raw.to_string())
+                .unwrap()
+                .render_html(),
+            "<p><strong>A</strong>B<em>C</em></p><p>D</p>"
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_and_non_enum_marks() {
+        for marks in [
+            json!(["bold", "bold"]),
+            json!(["italic", "italic"]),
+            json!(["bold", "italic", "bold"]),
+        ] {
+            let mut raw: serde_json::Value = serde_json::from_str(&input("private text")).unwrap();
+            raw["blocks"][0]["children"][0]["marks"] = marks;
+            assert_eq!(
+                Document::parse_json(&raw.to_string()).unwrap_err(),
+                DocumentError::InvalidMarks
+            );
+        }
+        for marks in [
+            json!(["Bold"]),
+            json!(["script"]),
+            json!([{"type":"bold"}]),
+            json!([null]),
+            json!("bold"),
+        ] {
+            let mut raw: serde_json::Value = serde_json::from_str(&input("private text")).unwrap();
+            raw["blocks"][0]["children"][0]["marks"] = marks;
+            let error = Document::parse_json(&raw.to_string()).unwrap_err();
+            assert_eq!(error, DocumentError::InvalidStructure);
+            assert!(!error.to_string().contains("private text"));
+        }
     }
 
     #[test]
@@ -173,7 +264,7 @@ mod tests {
         for (pointer, value) in [
             ("/format", json!("html")),
             ("/blocks/0/type", json!("heading")),
-            ("/blocks/0/children/0/marks", json!(["bold"])),
+            ("/blocks/0/children/0/marks", json!(["underline"])),
         ] {
             let mut raw: serde_json::Value = serde_json::from_str(&input("hello")).unwrap();
             *raw.pointer_mut(pointer).unwrap() = value;

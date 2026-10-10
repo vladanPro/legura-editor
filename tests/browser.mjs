@@ -69,6 +69,20 @@ try {
   });
   assert.match(await page.locator('#first [data-editor-error]').textContent(), /cannot be edited safely/);
   assert.equal(await page.locator('#first [data-editor-document]').isDisabled(), true);
+  await page.evaluate(async () => {
+    window.failedHandle.destroy();
+    const root = document.querySelector('#first [data-legura-editor]');
+    const formatted = { format: 'legura-richtext', version: 1, blocks: [
+      { type: 'paragraph', children: [{ text: 'Keep formatting', marks: ['bold', 'italic'] }] },
+    ] };
+    root.dataset.document = JSON.stringify(formatted);
+    window.formattedSource = root.dataset.document;
+    const { mountParagraphEditor } = await import('/src/js/paragraph-editor.js');
+    window.failedHandle = mountParagraphEditor(root);
+  });
+  assert.equal(await page.locator('#first [data-editor-document]').isDisabled(), true);
+  assert.equal(await first.getAttribute('readonly'), '');
+  assert.equal(await page.evaluate(() => document.querySelector('#first [data-legura-editor]').dataset.document === window.formattedSource), true);
   await page.setViewportSize({ width: 320, height: 800 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   assert.deepEqual(errors, []);
