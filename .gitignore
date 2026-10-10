@@ -1,0 +1,10 @@
+target/
+dist/
+node_modules/
+test-results/
+.env
+.env.*
+!.env.example
+*.db
+*.db-wal
+*.db-shm
