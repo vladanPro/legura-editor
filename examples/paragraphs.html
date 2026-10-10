@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Legura paragraph editor pilot</title>
+  <link rel="stylesheet" href="../src/css/editor.css">
+  <style>
+    body { margin: 0; background: #101317; color: #e8e5df; font-family: Georgia, serif; }
+    main { max-width: 52rem; margin: 3rem auto; padding: 1rem; }
+    form { display: grid; gap: 1rem; margin-bottom: 2rem; }
+    button { padding: 0.75rem 1rem; justify-self: start; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Paragraph editor pilot</h1>
+  <p>Local demonstration only: submit shows a document; it does not save to a database.</p>
+  <form id="first">
+    <div class="legura-editor" data-legura-editor="paragraph">
+      <label class="legura-editor__label"><span>First document</span><textarea class="legura-editor__input" data-editor-input rows="6" readonly></textarea></label>
+      <input type="hidden" name="content_document" data-editor-document disabled>
+      <p class="legura-editor__hint">One line per paragraph. Plain text only.</p>
+      <p data-editor-error role="status" aria-live="polite"></p>
+      <noscript>Editing requires JavaScript. Nothing is submitted by this editor.</noscript>
+    </div>
+    <button type="submit" disabled>Show document</button>
+    <pre data-result aria-live="polite"></pre>
+  </form>
+  <form id="second">
+    <div class="legura-editor" data-legura-editor="paragraph">
+      <label class="legura-editor__label"><span>Second document</span><textarea class="legura-editor__input" data-editor-input rows="6" readonly></textarea></label>
+      <input type="hidden" name="content_document" data-editor-document disabled>
+      <p data-editor-error role="status" aria-live="polite"></p>
+    </div>
+    <button type="submit" disabled>Show document</button>
+    <pre data-result aria-live="polite"></pre>
+  </form>
+</main>
+<script type="module">
+  import { mountParagraphEditors } from '../src/js/paragraph-editor.js';
+  window.editorHandles = mountParagraphEditors();
+  for (const form of document.forms) {
+    form.querySelector('button').disabled = false;
+    form.addEventListener('submit', event => {
+      const blocked = event.defaultPrevented;
+      event.preventDefault();
+      if (blocked || !form.checkValidity()) return;
+      const value = new FormData(form).get('content_document');
+      if (value) form.querySelector('[data-result]').textContent = value;
+    });
+  }
+</script>
+</body>
+</html>

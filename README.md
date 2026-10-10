@@ -4,8 +4,8 @@ An independent rich-text editor project for Legura and, later, other Axonyx
 applications. Foundry UI supplies the visual language; Legura owns publishing.
 
 Status: experimental Rust paragraph/text validation and rendering core on a
-feature branch. No browser editor, Cargo/npm release, React adapter or Legura
-integration is shipped yet.
+feature branch, plus an isolated paragraph editor pilot. No Cargo/npm release,
+React adapter or Legura integration is shipped yet.
 
 ## Direction
 
@@ -26,6 +26,7 @@ Keyboard accessibility, undo/redo, paste normalization and submission recovery
 are acceptance requirements, not optional polish.
 
 See [the document contract](docs/document-v0.md) and [roadmap](docs/roadmap.md).
+The first browser slice is documented in [Paragraph Editor V0](docs/paragraph-editor-v0.md).
 
 ## Core Checks
 
