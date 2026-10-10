@@ -1,12 +1,15 @@
 # Roadmap
 
-No dates or completion percentages are promised. This scaffold ships no editor.
+No dates or completion percentages are promised. No browser editor is shipped.
 
 ## 1. Document Core
 
 Implement a Rust paragraph/text document model, strict bounded validation and
 escaped HTML rendering. Test invalid structures, unsupported versions, resource
 limits and malicious text. Decide package names/license before publishing.
+
+The initial paragraph/text subset is implemented on the document-core feature
+branch with unit tests and CI. It remains unpublished and not used by Legura.
 
 ## 2. First Editable Slice
 

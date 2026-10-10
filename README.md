@@ -3,8 +3,9 @@
 An independent rich-text editor project for Legura and, later, other Axonyx
 applications. Foundry UI supplies the visual language; Legura owns publishing.
 
-Status: design scaffold only. No working editor, Cargo/npm release, React
-adapter or Legura integration is shipped yet.
+Status: experimental Rust paragraph/text validation and rendering core on a
+feature branch. No browser editor, Cargo/npm release, React adapter or Legura
+integration is shipped yet.
 
 ## Direction
 
@@ -25,6 +26,18 @@ Keyboard accessibility, undo/redo, paste normalization and submission recovery
 are acceptance requirements, not optional polish.
 
 See [the document contract](docs/document-v0.md) and [roadmap](docs/roadmap.md).
+
+## Core Checks
+
+```sh
+cargo test --locked
+cargo fmt --all -- --check
+cargo clippy --locked --all-targets -- -D warnings
+```
+
+`Document::parse_json` returns an immutable validated document. Only that
+document exposes `render_html`; there is no public unchecked constructor.
+Current marks must be an explicit empty array. Bold/italic are future work.
 
 ## Development
 

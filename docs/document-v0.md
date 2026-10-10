@@ -1,6 +1,6 @@
 # Document V0 Proposal
 
-This is a proposed wire contract, not an implemented validator or stable API.
+The paragraph/text subset is implemented experimentally; this is not a stable API.
 
 ## Envelope
 
@@ -17,7 +17,7 @@ explicit storage integration is agreed and migrated.
       "type": "paragraph",
       "children": [
         { "text": "Hello ", "marks": [] },
-        { "text": "Legura", "marks": ["bold"] }
+        { "text": "Legura", "marks": [] }
       ]
     }
   ]
@@ -31,8 +31,14 @@ V0 is a bounded tree, not arbitrary HTML or executable components.
 ## Trust Boundary
 
 The server rejects unsupported versions/types/marks, unknown fields, malformed
-structures and excessive encoded bytes, nodes, depth or text lengths. Numeric
-limits will be chosen alongside runtime request limits in the validator PR.
+structures and excessive encoded bytes, nodes, depth or text lengths. Limits:
+32 KiB raw JSON, 1..256 paragraphs, 1 or more text runs per paragraph,
+512 total runs, and 20000 Unicode scalar values across all text. Empty text
+is allowed; control characters other than newline, carriage return and tab are
+rejected. Marks must be present and empty; no formatting marks are supported yet.
+There are no recursive block types. Serde's default recursion guard remains on.
+These core limits do not override the HTTP/form encoded request budget; Legura
+integration must check that boundary separately.
 Invalid documents must not be persisted and should return actionable errors
 without echoing private request data into logs.
 
