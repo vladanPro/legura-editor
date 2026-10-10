@@ -28,6 +28,11 @@ Add heading/bold/italic, then lists and safe links one at a time. Test keyboard
 navigation, accessible toolbar semantics, selection retention, paste handling
 and mobile layouts. Do not rely on deprecated execCommand as the architecture.
 
+Inline mark core V0 adds strict bold/italic validation, canonical mark order and
+safe strong/em rendering. Browser regression verifies the older textarea editor
+refuses formatted documents without altering the source. Formatting-aware
+selection, toolbar and undo history remain the next separate browser slice.
+
 ## 4. Legura Pilot
 
 Agree explicit content-format storage and migration policy. Integrate one

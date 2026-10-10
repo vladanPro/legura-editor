@@ -35,7 +35,12 @@ structures and excessive encoded bytes, nodes, depth or text lengths. Limits:
 32 KiB raw JSON, 1..256 paragraphs, 1 or more text runs per paragraph,
 512 total runs, and 20000 Unicode scalar values across all text. Empty text
 is allowed; control characters other than newline, carriage return and tab are
-rejected. Marks must be present and empty; no formatting marks are supported yet.
+rejected. Marks must be present and contain unique values from `bold` and
+`italic` (or be empty). Other names/objects and duplicates are rejected.
+Order is normalized to bold then italic. Rendering uses fixed strong/em tags,
+closed before the next run; submitted text is always escaped. The wire version
+remains 1 for this unpublished additive slice. Older clients must refuse marks
+they cannot preserve rather than silently flattening formatted documents.
 There are no recursive block types. Serde's default recursion guard remains on.
 These core limits do not override the HTTP/form encoded request budget; Legura
 integration must check that boundary separately.

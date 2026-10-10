@@ -38,7 +38,9 @@ cargo clippy --locked --all-targets -- -D warnings
 
 `Document::parse_json` returns an immutable validated document. Only that
 document exposes `render_html`; there is no public unchecked constructor.
-Current marks must be an explicit empty array. Bold/italic are future work.
+The Rust core accepts unique bold/italic marks and renders fixed strong/em tags.
+The current textarea pilot still requires empty marks and refuses formatted
+documents to avoid data loss. A formatting-aware toolbar is not implemented yet.
 
 ## Development
 
