@@ -1,7 +1,7 @@
 const instances = new WeakMap();
 const encoder = new TextEncoder();
 
-function validate(document) {
+export function validateParagraphDocument(document, allowMarks = false) {
   const exact = (object, keys) => object && typeof object === 'object' && !Array.isArray(object)
     && Object.keys(object).length === keys.length && keys.every(key => Object.hasOwn(object, key));
   if (!exact(document, ['format', 'version', 'blocks']) || document.format !== 'legura-richtext'
@@ -16,7 +16,9 @@ function validate(document) {
     if (runs > 512) throw new Error('Too many text runs.');
     for (const run of block.children) {
       if (!exact(run, ['text', 'marks']) || typeof run.text !== 'string'
-        || !Array.isArray(run.marks) || run.marks.length) throw new Error('Unsupported text or formatting.');
+        || !Array.isArray(run.marks) || (!allowMarks && run.marks.length)
+        || run.marks.length > 2 || new Set(run.marks).size !== run.marks.length
+        || run.marks.some(mark => !['bold', 'italic'].includes(mark))) throw new Error('Unsupported text or formatting.');
       for (const character of run.text) {
         const code = character.codePointAt(0);
         if ((code < 32 && ![9, 10, 13].includes(code)) || (code >= 127 && code <= 159)
@@ -51,7 +53,7 @@ export function mountParagraphEditor(root) {
   try {
     const source = root.dataset.document || '{"format":"legura-richtext","version":1,"blocks":[{"type":"paragraph","children":[{"text":"","marks":[]}]}]}';
     if (encoder.encode(source).length > 32768) throw new Error('Document exceeds 32 KiB.');
-    const document = validate(JSON.parse(source));
+    const document = validateParagraphDocument(JSON.parse(source));
     input.value = document.blocks.map(block => block.children.map(run => run.text).join('')).join('\n');
     input.defaultValue = input.value;
     field.value = JSON.stringify(document);
@@ -64,7 +66,7 @@ export function mountParagraphEditor(root) {
   const update = () => {
     if (!active || input.readOnly) return;
     try {
-      const document = validate({ format: 'legura-richtext', version: 1, blocks:
+      const document = validateParagraphDocument({ format: 'legura-richtext', version: 1, blocks:
         input.value.split('\n').map(text => ({ type: 'paragraph', children: [{ text, marks: [] }] })) });
       field.value = JSON.stringify(document);
       field.disabled = false;

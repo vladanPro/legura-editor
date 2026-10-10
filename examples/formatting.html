@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Legura formatting pilot</title>
+  <link rel="stylesheet" href="../src/css/editor.css">
+  <style>body { background: #101317; color: #e8e5df; margin: 0; font-family: Georgia, serif; } main { max-width: 52rem; margin: 2rem auto; padding: 1rem; } form { margin-bottom: 2rem; } pre { white-space: pre-wrap; overflow-wrap: anywhere; }</style>
+</head>
+<body><main>
+  <h1>Formatting pilot</h1>
+  <p>Text input plus formatted preview, not WYSIWYG yet. This demo displays JSON without saving to a database.</p>
+  <form id="formatting">
+    <div class="legura-editor" data-legura-editor="formatting">
+      <div class="legura-editor__toolbar" role="group" aria-label="Text formatting">
+        <button type="button" data-editor-command="bold" aria-pressed="false" disabled>Bold</button>
+        <button type="button" data-editor-command="italic" aria-pressed="false" disabled>Italic</button>
+        <button type="button" data-editor-command="undo" disabled>Undo</button>
+        <button type="button" data-editor-command="redo" disabled>Redo</button>
+      </div>
+      <label class="legura-editor__label"><span>Formatted content</span><textarea class="legura-editor__input" data-editor-input rows="6" readonly></textarea></label>
+      <input type="hidden" name="content_document" data-editor-document disabled>
+      <p class="legura-editor__hint">Select text, then Bold or Italic. One line per paragraph.</p>
+      <p data-editor-error role="status" aria-live="polite"></p>
+      <div class="legura-editor__preview" data-editor-preview role="region" aria-label="Formatted preview"></div>
+      <noscript>Editing requires JavaScript. Nothing is submitted by this editor.</noscript>
+    </div>
+    <button type="submit" disabled>Show document</button>
+    <button type="reset">Reset</button>
+    <pre data-result></pre>
+  </form>
+</main>
+<script type="module">
+  import { mountFormattingEditor } from '../src/js/formatting-editor.js';
+  const root = document.querySelector('[data-legura-editor="formatting"]');
+  window.formattingHandle = mountFormattingEditor(root);
+  const form = document.querySelector('form');
+  form.querySelector('[type="submit"]').disabled = false;
+  form.addEventListener('submit', event => {
+    const blocked = event.defaultPrevented;
+    event.preventDefault();
+    if (blocked || !form.checkValidity()) return;
+    const value = new FormData(form).get('content_document');
+    if (value) form.querySelector('[data-result]').textContent = value;
+  });
+</script>
+</body></html>
