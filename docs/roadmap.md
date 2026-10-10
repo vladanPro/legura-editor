@@ -1,6 +1,6 @@
 # Roadmap
 
-No dates or completion percentages are promised. No browser editor is shipped.
+No dates or completion percentages are promised. No production editor is shipped.
 
 ## 1. Document Core
 
@@ -16,6 +16,11 @@ branch with unit tests and CI. It remains unpublished and not used by Legura.
 Build a Foundry `.asx` component and browser module for paragraphs, submission,
 selection and undo/redo. Verify two instances are isolated and lifecycle cleanup
 works. Provide explicit no-JS behavior without content loss.
+
+ParagraphEditor V0 now has an isolated textarea-based browser pilot with JSON
+submission output, native undo/redo, limits/recovery, instance isolation, reset,
+teardown and read-only fallback. This is not a formatting toolbar or database
+integration. See paragraph-editor-v0.md for representation limits and tests.
 
 ## 3. Formatting
 

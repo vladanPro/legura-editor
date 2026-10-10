@@ -1,0 +1,15 @@
+import { ParagraphEditor } from "@/components/ParagraphEditor"
+
+page EditorPilot() {
+  return ASX {
+    <section>
+      <h1>Paragraph editor pilot</h1>
+      <form>
+        <ParagraphEditor label="First document" />
+      </form>
+      <form>
+        <ParagraphEditor name="second_document" label="Second document" />
+      </form>
+    </section>
+  }
+}

@@ -1,0 +1,14 @@
+component ParagraphEditor(name = "content_document", label = "Content", document = "", fallback = "") {
+  return ASX {
+    <div class="legura-editor" data-legura-editor="paragraph" data-document={document}>
+      <label class="legura-editor__label">
+        <span>{label}</span>
+        <textarea class="legura-editor__input" data-editor-input="true" rows="12" readonly="true">{fallback}</textarea>
+      </label>
+      <input type="hidden" name={name} data-editor-document="true" disabled="true" />
+      <p class="legura-editor__hint">One line per paragraph. Plain text only in this version.</p>
+      <p data-editor-error="true" role="status" aria-live="polite"></p>
+      <noscript><p>Rich-text editing requires JavaScript. Content is read-only; nothing will be submitted by this editor.</p></noscript>
+    </div>
+  }
+}
