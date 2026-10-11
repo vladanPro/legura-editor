@@ -45,8 +45,31 @@ Flat lists use consecutive item blocks, not nested documents:
 render as one ul/ol group, each with a fixed li. Kind changes or non-list blocks
 close the prior group. Each new ordered group starts normal HTML numbering at
 1. No depth, custom numbering, attributes or child blocks are accepted. Each
-item counts toward the same block/run/text/byte limits. Links remain unimplemented.
+item counts toward the same block/run/text/byte limits.
 V0 is a bounded tree, not arbitrary HTML or executable components.
+
+## Safe Link Server Contract V0
+
+Text runs may have an optional `link` string:
+
+```json
+{"text":"Read more","marks":["bold"],"link":"https://example.com/posts"}
+```
+
+The Rust core accepts absolute lowercase `http://` and `https://` destinations
+only, parsed using the `url` crate, with a nonempty host and no credentials.
+The destination is bounded to 2048 UTF-8 bytes; whitespace, controls and
+backslashes are rejected. Null, object and non-string links are invalid.
+Local paths, protocol-relative URLs and other schemes are deliberately deferred.
+Omit `link` for unlinked text. Server rendering escapes the href and text,
+uses fixed `rel="nofollow ugc"`, and opens in the same browsing context.
+No target, event attributes, automatic fetching or remote preview is accepted.
+This is not phishing protection or a destination reputation check.
+
+This first slice implements server validation/rendering only. Existing browser
+editors reject linked documents without flattening them; link editing and
+history-preserving selection are the next slice. Wire version remains 1 because
+the package is unpublished; old server cores reject the new run field as well.
 
 ## Trust Boundary
 
@@ -71,8 +94,7 @@ Invalid documents must not be persisted and should return actionable errors
 without echoing private request data into logs.
 
 Text is escaped when rendering; no raw HTML escape hatch. Link destinations
-require explicit scheme validation (initial proposal: HTTPS/HTTP and safe local
-paths). No scripts, styles, event attributes, embeds or user-supplied SVG.
+use the server policy above. No scripts, styles, event attributes, embeds or user-supplied SVG.
 Paste is normalized to supported content, never stored as untrusted HTML.
 
 The editor document is not an authorization token. Legura still checks session,

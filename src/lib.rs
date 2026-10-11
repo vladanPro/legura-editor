@@ -19,6 +19,7 @@ pub enum DocumentError {
     InvalidText,
     InvalidMarks,
     InvalidHeadingLevel,
+    InvalidLink,
 }
 
 impl fmt::Display for DocumentError {
@@ -33,6 +34,9 @@ impl fmt::Display for DocumentError {
             Self::InvalidText => "Document contains unsupported control characters",
             Self::InvalidMarks => "Text marks must be unique bold or italic values",
             Self::InvalidHeadingLevel => "Heading level must be 2 or 3",
+            Self::InvalidLink => {
+                "Link must be a bounded absolute HTTP or HTTPS URL without credentials"
+            }
         })
     }
 }
@@ -114,6 +118,41 @@ impl Block {
 struct TextRun {
     text: String,
     marks: Vec<Mark>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_link",
+        skip_serializing_if = "Option::is_none"
+    )]
+    link: Option<String>,
+}
+
+fn deserialize_link<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    String::deserialize(deserializer).map(Some)
+}
+
+fn valid_link(link: &str) -> bool {
+    if link.is_empty()
+        || link.len() > 2048
+        || link
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control() || c == '\\')
+    {
+        return false;
+    }
+    let Ok(parsed) = url::Url::parse(link) else {
+        return false;
+    };
+    let authority = link
+        .split_once("://")
+        .map(|(_, rest)| rest.split(['/', '?', '#']).next().unwrap_or(""));
+    matches!(parsed.scheme(), "http" | "https")
+        && parsed.host_str().is_some()
+        && parsed.username().is_empty()
+        && parsed.password().is_none()
+        && authority.is_some_and(|value| !value.is_empty() && !value.contains('@'))
+        && (link.starts_with("https://") || link.starts_with("http://"))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
@@ -152,6 +191,9 @@ impl Document {
                 return Err(DocumentError::InvalidRunCount);
             }
             for run in block.children_mut() {
+                if run.link.as_deref().is_some_and(|link| !valid_link(link)) {
+                    return Err(DocumentError::InvalidLink);
+                }
                 if run.marks.len() > 2 || (run.marks.len() == 2 && run.marks[0] == run.marks[1]) {
                     return Err(DocumentError::InvalidMarks);
                 }
@@ -201,27 +243,26 @@ impl Document {
             };
             html.push_str(open);
             for run in block.children() {
+                if let Some(link) = &run.link {
+                    html.push_str("<a href=\"");
+                    escape_html(&mut html, link);
+                    html.push_str("\" rel=\"nofollow ugc\">");
+                }
                 if run.marks.contains(&Mark::Bold) {
                     html.push_str("<strong>");
                 }
                 if run.marks.contains(&Mark::Italic) {
                     html.push_str("<em>");
                 }
-                for character in run.text.chars() {
-                    match character {
-                        '&' => html.push_str("&amp;"),
-                        '<' => html.push_str("&lt;"),
-                        '>' => html.push_str("&gt;"),
-                        '"' => html.push_str("&quot;"),
-                        '\'' => html.push_str("&#39;"),
-                        _ => html.push(character),
-                    }
-                }
+                escape_html(&mut html, &run.text);
                 if run.marks.contains(&Mark::Italic) {
                     html.push_str("</em>");
                 }
                 if run.marks.contains(&Mark::Bold) {
                     html.push_str("</strong>");
+                }
+                if run.link.is_some() {
+                    html.push_str("</a>");
                 }
             }
             html.push_str(close);
@@ -230,6 +271,19 @@ impl Document {
             html.push_str(list.close());
         }
         html
+    }
+}
+
+fn escape_html(html: &mut String, text: &str) {
+    for character in text.chars() {
+        match character {
+            '&' => html.push_str("&amp;"),
+            '<' => html.push_str("&lt;"),
+            '>' => html.push_str("&gt;"),
+            '"' => html.push_str("&quot;"),
+            '\'' => html.push_str("&#39;"),
+            _ => html.push(character),
+        }
     }
 }
 
@@ -243,6 +297,113 @@ mod tests {
             {"type":"paragraph","children":[{"text":text,"marks":[]}]}
         ]})
         .to_string()
+    }
+
+    #[test]
+    fn links_are_escaped_and_round_trip_with_marks() {
+        let raw = json!({"format":"legura-richtext","version":1,"blocks":[
+            {"type":"paragraph","children":[{"text":"<Read>","marks":["bold","italic"],"link":"https://example.com/?a=1&b=\"quoted\""}]}
+        ]}).to_string();
+        let doc = Document::parse_json(&raw).unwrap();
+        let html = "<p><a href=\"https://example.com/?a=1&amp;b=&quot;quoted&quot;\" rel=\"nofollow ugc\"><strong><em>&lt;Read&gt;</em></strong></a></p>";
+        assert_eq!(doc.render_html(), html);
+        assert_eq!(
+            Document::parse_json(&doc.to_json().unwrap())
+                .unwrap()
+                .render_html(),
+            html
+        );
+        assert!(!Document::parse_json(&input("plain"))
+            .unwrap()
+            .to_json()
+            .unwrap()
+            .contains("link"));
+    }
+
+    #[test]
+    fn unsafe_links_are_rejected_without_echoing_the_destination() {
+        for link in [
+            "javascript:private",
+            "data:text/html,private",
+            "//example.com",
+            "/posts",
+            "https://user:private@example.com",
+            "https://example.com\\private",
+            " https://example.com",
+            "https://example.com/\nprivate",
+            "https:example.com",
+            "ftp://example.com",
+            "",
+            "https://",
+        ] {
+            let mut raw: serde_json::Value = serde_json::from_str(&input("text")).unwrap();
+            raw["blocks"][0]["children"][0]["link"] = json!(link);
+            let error = Document::parse_json(&raw.to_string()).unwrap_err();
+            assert_eq!(error, DocumentError::InvalidLink);
+            assert!(!error.to_string().contains("private"));
+        }
+        for link in [
+            serde_json::Value::Null,
+            json!(true),
+            json!({"href":"https://example.com"}),
+        ] {
+            let mut raw: serde_json::Value = serde_json::from_str(&input("text")).unwrap();
+            raw["blocks"][0]["children"][0]["link"] = link;
+            assert_eq!(
+                Document::parse_json(&raw.to_string()).unwrap_err(),
+                DocumentError::InvalidStructure
+            );
+        }
+        let mut raw: serde_json::Value = serde_json::from_str(&input("text")).unwrap();
+        raw["blocks"][0]["children"][0]["link"] =
+            json!(format!("https://example.com/{}", "a".repeat(2048)));
+        assert_eq!(
+            Document::parse_json(&raw.to_string()).unwrap_err(),
+            DocumentError::InvalidLink
+        );
+    }
+
+    #[test]
+    fn url_policy_is_closed_and_shared_across_text_blocks() {
+        for link in [
+            "https://@example.com",
+            "https:///example.com",
+            "HTTPS://example.com",
+            "https://example.com/\tpath",
+            "https://example.com/\u{0085}path",
+            "https://[broken",
+            "https://example.com:bad",
+        ] {
+            assert!(!valid_link(link), "accepted an unsupported URL");
+        }
+        for link in [
+            "https://example.com",
+            "http://localhost:3940/posts",
+            "https://[::1]:3940/posts",
+            "https://example.com/path?q=hello%20world#section",
+            "https://example.com/članak",
+        ] {
+            assert!(valid_link(link), "rejected a supported URL");
+        }
+        let children = json!([{"text":"Link","marks":[],"link":"https://example.com"}]);
+        for block in [
+            json!({"type":"paragraph","children":children}),
+            json!({"type":"heading","level":2,"children":children}),
+            json!({"type":"list-item","list":"ordered","children":children}),
+        ] {
+            let raw = json!({"format":"legura-richtext","version":1,"blocks":[block]}).to_string();
+            assert!(Document::parse_json(&raw)
+                .unwrap()
+                .render_html()
+                .contains("<a href="));
+        }
+        let raw = json!({"format":"legura-richtext","version":1,"blocks":[
+            {"type":"paragraph","children":[{"text":"text","marks":[],"link":"https://example.com","target":"_blank"}]}
+        ]}).to_string();
+        assert_eq!(
+            Document::parse_json(&raw).unwrap_err(),
+            DocumentError::InvalidStructure
+        );
     }
 
     #[test]
