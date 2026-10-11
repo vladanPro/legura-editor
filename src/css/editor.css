@@ -50,3 +50,63 @@
 .legura-editor__surface ul, .legura-editor__surface ol { margin: 0 0 0.6rem; padding-left: 1.6rem; }
 .legura-editor__surface li { min-height: 1.5em; white-space: pre-wrap; }
 .legura-editor [hidden] { display: none; }
+
+/* One joined toolbar/surface; the other editor pilots keep their own layout. */
+.legura-editor[data-legura-editor="richtext"] { gap: 0; }
+.legura-editor[data-legura-editor="richtext"] > .legura-editor__label { margin-bottom: 0.6rem; }
+.legura-editor[data-legura-editor="richtext"] > .legura-editor__toolbar {
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background: var(--ax-surface-2, #20252d);
+  border: 1px solid var(--ax-border, #525860);
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+.legura-editor[data-legura-editor="richtext"] .legura-editor__toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+.legura-editor[data-legura-editor="richtext"] .legura-editor__toolbar button:disabled { cursor: default; }
+.legura-editor[data-legura-editor="richtext"] .ax-icon { width: 1.2rem; height: 1.2rem; flex: none; pointer-events: none; }
+.legura-editor[data-legura-editor="richtext"] .legura-editor__link-label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  font-size: 0.75rem;
+}
+.legura-editor__link-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  width: min(22rem, calc(100vw - 1rem));
+  max-height: calc(100vh - 1rem);
+  overflow: auto;
+  padding: 0.85rem;
+  border: 1px solid var(--ax-border, #525860);
+  border-radius: 0.5rem;
+  background: var(--ax-surface, #16191e);
+  color: var(--ax-text, #e8e5df);
+  box-shadow: 0 12px 32px #0005;
+}
+.legura-editor__link-actions { display: flex; gap: 0.5rem; margin-top: 0.65rem; }
+.legura-editor__link-actions button {
+  padding: 0.5rem 0.75rem;
+  min-height: 2.75rem;
+  color: inherit;
+  background: var(--ax-surface-2, #20252d);
+  border: 1px solid var(--ax-border, #525860);
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+.legura-editor__link-popover [data-editor-link-error] { margin: 0.5rem 0 0; font-size: 0.875rem; }
+.legura-editor[data-legura-editor="richtext"] > .legura-editor__surface,
+.legura-editor[data-legura-editor="richtext"] > .legura-editor__input {
+  border-top: 0;
+  border-radius: 0 0 0.5rem 0.5rem;
+}
+.legura-editor[data-legura-editor="richtext"] > [data-editor-error]:not(:empty) { margin-top: 0.6rem; }

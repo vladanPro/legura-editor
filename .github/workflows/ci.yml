@@ -24,6 +24,12 @@ jobs:
         browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
+      - name: Check out canonical Foundry editor icons
+        uses: actions/checkout@v4
+        with:
+          repository: vladanPro/axonyx-ui
+          ref: 5b2d2ecdd87f11ff9c43083cd8a14903f4b6f87d
+          path: .test-ui
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -32,3 +38,5 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/editor-test-tools" --no-save --package-lock=false playwright@1.62.1
           "$RUNNER_TEMP/editor-test-tools/node_modules/.bin/playwright" install --with-deps "${{ matrix.browser }}"
       - run: node tests/browser.mjs "$RUNNER_TEMP/editor-test-tools" "${{ matrix.browser }}"
+        env:
+          AXONYX_UI_SOURCE: ${{ github.workspace }}/.test-ui

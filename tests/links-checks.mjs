@@ -7,7 +7,13 @@ export async function checkLinks(page, baseUrl) {
   await page.waitForFunction(() => window.richtextHandle);
   const surface = page.locator('[data-editor-preview]');
   const field = page.locator('[data-editor-document]');
-  const address = page.getByRole('textbox', { name: 'Link address' });
+  const address = page.locator('[data-editor-link]');
+  const panel = page.getByRole('dialog', { name: 'Insert link' });
+  assert.equal(await panel.isVisible(), false, 'Link input stays hidden until requested');
+  const setAddress = async value => {
+    if (!await panel.isVisible()) await page.getByRole('button', { name: 'Insert link', exact: true }).click();
+    await address.fill(value);
+  };
   const command = name => page.getByRole('button', { name, exact: true }).click();
   const doc = async () => JSON.parse(await field.inputValue());
   const select = async (start, end = start) => surface.evaluate((node, [start, end]) => {
@@ -31,18 +37,41 @@ export async function checkLinks(page, baseUrl) {
   await surface.pressSequentially('Read more');
   await select(0, 4);
   await command('Bold');
-  await address.fill('https://example.com/?a=1&b="quoted"');
+  await page.getByRole('button', { name: 'Insert link', exact: true }).click();
+  await address.fill('https://cancel.example');
+  await address.press('Escape');
+  assert.equal(await panel.isVisible(), false);
+  assert.equal(await surface.locator('a').count(), 0);
+  const beforeLink = await field.inputValue();
+  await page.getByRole('button', { name: 'Insert link', exact: true }).click();
+  await page.getByRole('heading', { name: 'Rich-text pilot', exact: true }).click();
+  assert.equal(await panel.isVisible(), false, 'Outside click dismisses the popup');
+  assert.equal(await field.inputValue(), beforeLink);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await select(0, 4);
+  await setAddress('https://example.com/?a=1&b="quoted"');
+  const popupBox = await panel.boundingBox();
+  assert.ok(popupBox.x >= 0 && popupBox.x + popupBox.width <= 390, 'Popup stays inside the mobile viewport');
+  assert.ok(popupBox.y >= 0 && popupBox.y + popupBox.height <= 900);
+  if (process.env.EDITOR_SCREENSHOTS) {
+    await page.screenshot({ path: process.env.EDITOR_SCREENSHOTS + '/link-popup.png', fullPage: true });
+  }
   await command('Apply link');
+  assert.equal(await panel.isVisible(), false);
+  await page.setViewportSize({ width: 1100, height: 800 });
   assert.equal(await surface.locator('a strong').textContent(), 'Read');
   assert.equal(await surface.locator('a').getAttribute('href'), 'https://example.com/?a=1&b="quoted"');
+  assert.equal(await surface.locator('a').evaluate(node => getComputedStyle(node).textDecorationLine.includes('underline')), true);
   const linked = await field.inputValue();
   await command('Undo');
   assert.equal(await surface.locator('a').count(), 0);
   await command('Redo');
   assert.equal(await field.inputValue(), linked);
   await select(0, 4);
-  await address.fill('javascript:alert(1)');
+  await setAddress('javascript:alert(1)');
   await command('Apply link');
+  assert.equal(await panel.isVisible(), true, 'Rejected URL keeps the dialog open');
+  assert.match(await panel.locator('[data-editor-link-error]').textContent(), /HTTP/);
   assert.equal(await field.inputValue(), linked);
   assert.equal(await field.isDisabled(), false, 'Invalid URL does not invalidate existing content');
   assert.match(await page.locator('[data-editor-error]').textContent(), /HTTP/);
@@ -54,8 +83,9 @@ export async function checkLinks(page, baseUrl) {
     });
   });
   assert.equal(rejected, true);
+  await command('Cancel');
   await select(1, 3);
-  await address.fill('https://other.example/posts');
+  await setAddress('https://other.example/posts');
   await command('Apply link');
   assert.deepEqual((await doc()).blocks[0].children.slice(0, 3).map(run => run.link),
     ['https://example.com/?a=1&b="quoted"', 'https://other.example/posts', 'https://example.com/?a=1&b="quoted"']);
@@ -112,7 +142,7 @@ export async function checkLinks(page, baseUrl) {
   await command('Undo');
   assert.equal(await field.inputValue(), saved);
   await select(0, 5);
-  await address.fill('https://keyboard.example');
+  await setAddress('https://keyboard.example');
   await address.press('Enter');
   assert.equal((await doc()).blocks[0].children[0].link, 'https://keyboard.example');
   await command('Undo');
@@ -142,7 +172,7 @@ export async function checkLinks(page, baseUrl) {
     selection.removeAllRanges(); selection.addRange(range);
     document.dispatchEvent(new Event('selectionchange'));
   });
-  await address.fill('https://example.com/cross-block');
+  await setAddress('https://example.com/cross-block');
   await command('Apply link');
   assert.equal(await surface.locator('h2 a strong').textContent(), '🙂Title');
   assert.equal(await surface.locator('ul li a').textContent(), 'Item');

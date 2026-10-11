@@ -232,7 +232,7 @@ export function mountFormattingEditor(root, options = {}) {
     const nextStyles = [...styles.slice(0, first), styles[first], ...added, ...styles.slice(last + 1)];
     try { commit(next, selection(), true, nextStyles); } catch (failure) { fail(failure.message); }
   };
-  const command = name => {
+  const command = (name, applyLink = false) => {
     if (!initialized || composing || options.isSuspended?.()) return;
     if (name === 'undo') {
       if (!valid) restore(history[cursor]);
@@ -242,13 +242,20 @@ export function mountFormattingEditor(root, options = {}) {
     } else if (valid && options.allowLinks && (name === 'link' || name === 'unlink')) {
       const chosen = selectedAtoms();
       if (!chosen.some(Boolean)) return;
+      if (name === 'link' && !applyLink && options.requestLink) {
+        const links = atoms.filter((_, index) => chosen[index]).map(atom => atom[2]);
+        options.requestLink(links.every(link => link === links[0]) ? links[0] || '' : '');
+        return;
+      }
       try {
         const destination = name === 'link' ? validateLink(linkInput.value) : undefined;
         const next = atoms.map((atom, index) => chosen[index] ? [atom[0], atom[1], destination] : atom);
         if (next.some((atom, index) => atom[2] !== atoms[index][2])) commit(next);
         error.textContent = '';
+        options.linkApplied?.();
       } catch (failure) {
         error.textContent = failure.message;
+        options.linkError?.(failure.message);
         linkInput.focus();
         return;
       }
@@ -310,8 +317,13 @@ export function mountFormattingEditor(root, options = {}) {
   for (const button of buttons) button.addEventListener('click', () => command(button.dataset.editorCommand), listeners);
   linkInput?.addEventListener('keydown', event => {
     if (event.isComposing || options.isSuspended?.()) return;
-    if (event.key === 'Enter') { event.preventDefault(); command('link'); }
-    else if (event.key === 'Escape') { event.preventDefault(); options.focus?.(); }
+    if (event.key === 'Enter') { event.preventDefault(); command('link', true); }
+    else if (event.key === 'Escape') { event.preventDefault(); options.cancelLink?.(); options.focus?.(); }
+  }, listeners);
+  root.querySelector('[data-editor-link-apply]')?.addEventListener('click', () => command('link', true), listeners);
+  root.querySelector('[data-editor-link-close]')?.addEventListener('click', () => {
+    options.cancelLink?.();
+    options.focus?.();
   }, listeners);
   form?.addEventListener('submit', event => {
     if (!valid || composing || !initialized) { event.preventDefault(); input.reportValidity(); }

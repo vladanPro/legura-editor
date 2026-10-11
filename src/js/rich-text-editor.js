@@ -18,6 +18,50 @@ export function mountRichTextEditor(root) {
   let composing = false;
   let compositionSelection = null;
   let pointerDown = false;
+  const linkPanel = root.querySelector('[data-editor-link-popover]');
+  const linkButton = root.querySelector('[data-editor-command="link"]');
+  const linkInput = root.querySelector('[data-editor-link]');
+  const linkError = root.querySelector('[data-editor-link-error]');
+  const closeLink = () => {
+    if (linkPanel?.matches(':popover-open')) linkPanel.hidePopover();
+    linkButton?.setAttribute('aria-expanded', 'false');
+  };
+  const openLink = destination => {
+    if (!linkPanel || composing || field.disabled) return;
+    const selection = document.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const anchor = range && surface.contains(range.commonAncestorContainer)
+      ? range.getBoundingClientRect() : linkButton.getBoundingClientRect();
+    linkInput.value = destination;
+    linkError.textContent = '';
+    linkPanel.showPopover();
+    const box = linkPanel.getBoundingClientRect();
+    const view = document.defaultView;
+    const left = Math.max(8, Math.min(anchor.left, view.innerWidth - box.width - 8));
+    const top = anchor.bottom + box.height + 8 <= view.innerHeight
+      ? anchor.bottom + 8 : Math.max(8, anchor.top - box.height - 8);
+    linkPanel.style.left = left + 'px';
+    linkPanel.style.top = top + 'px';
+    root.querySelector('[data-editor-link-apply]').disabled = linkInput.disabled;
+    linkButton.setAttribute('aria-expanded', 'true');
+    linkInput.focus();
+  };
+  linkPanel?.addEventListener('beforetoggle', event => {
+    if (event.newState === 'closed') linkButton.setAttribute('aria-expanded', 'false');
+  }, listeners);
+  linkPanel?.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !event.isComposing) {
+      event.preventDefault();
+      closeLink();
+      surface.focus();
+      restoreSelection();
+    }
+  }, listeners);
+  document.defaultView.addEventListener('resize', closeLink, listeners);
+  document.addEventListener('scroll', event => {
+    if (!linkPanel?.contains(event.target)) closeLink();
+  }, { ...listeners, capture: true });
+  field.form?.addEventListener('reset', closeLink, listeners);
 
   const point = offset => {
     const paragraphs = Array.from(surface.querySelectorAll('[data-editor-block]'));
@@ -81,6 +125,10 @@ export function mountRichTextEditor(root) {
     allowHeadings: true,
     allowLists: true,
     allowLinks: true,
+    requestLink: openLink,
+    cancelLink: closeLink,
+    linkApplied: closeLink,
+    linkError: message => { if (linkError) linkError.textContent = message; },
     isSuspended: () => composing,
     onRender: () => { if (document.activeElement === surface) restoreSelection(); },
     focus: () => { surface.focus(); restoreSelection(); },
@@ -149,6 +197,7 @@ export function mountRichTextEditor(root) {
   }, listeners);
   surface.addEventListener('compositionstart', () => {
     if (!initialized || composing || !syncSelection()) return;
+    closeLink();
     compositionSelection = [input.selectionStart, input.selectionEnd];
     composing = true;
     field.disabled = true;
@@ -202,6 +251,7 @@ export function mountRichTextEditor(root) {
   }
   const result = { destroy() {
     active = false;
+    closeLink();
     controller.abort();
     handle.destroy();
     input.hidden = false;

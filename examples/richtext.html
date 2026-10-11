@@ -10,27 +10,7 @@
   <h1>Rich-text pilot</h1>
   <p>Paragraphs with selected bold/italic. Plain-text paste only. IME commits as one undo step. No database writes.</p>
   <form id="richtext">
-    <div class="legura-editor" data-legura-editor="richtext">
-      <div class="legura-editor__toolbar" role="group" aria-label="Text formatting">
-        <button type="button" data-editor-command="paragraph" aria-pressed="false" disabled>Paragraph</button>
-        <button type="button" data-editor-command="heading-2" aria-pressed="false" disabled>H2</button>
-        <button type="button" data-editor-command="heading-3" aria-pressed="false" disabled>H3</button>
-        <button type="button" data-editor-command="unordered-list" aria-pressed="false" disabled>Bullets</button>
-        <button type="button" data-editor-command="ordered-list" aria-pressed="false" disabled>Numbered</button>
-        <button type="button" data-editor-command="bold" aria-pressed="false" disabled>Bold</button>
-        <button type="button" data-editor-command="italic" aria-pressed="false" disabled>Italic</button>
-        <label>Link address <input type="text" inputmode="url" data-editor-link placeholder="https://example.com" disabled></label>
-        <button type="button" data-editor-command="link" disabled>Apply link</button>
-        <button type="button" data-editor-command="unlink" disabled>Remove link</button>
-        <button type="button" data-editor-command="undo" disabled>Undo</button>
-        <button type="button" data-editor-command="redo" disabled>Redo</button>
-      </div>
-      <label class="legura-editor__label"><span>Content</span><textarea data-editor-input class="legura-editor__input" readonly></textarea></label>
-      <input type="hidden" name="content_document" data-editor-document disabled>
-      <div class="legura-editor__preview legura-editor__surface" data-editor-preview role="textbox" aria-label="Content" aria-multiline="true" contenteditable="false" tabindex="0"></div>
-      <p data-editor-error role="status" aria-live="polite"></p>
-      <noscript>Original content is read-only and will not be submitted.</noscript>
-    </div>
+    <!-- richtext-component -->
     <button type="reset">Reset</button>
   </form>
 </main><script type="module">
