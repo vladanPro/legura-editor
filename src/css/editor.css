@@ -22,7 +22,11 @@
 .legura-editor__hint { font-size: 0.875rem; margin: 0; }
 .legura-editor [data-editor-error] { margin: 0; }
 .legura-editor__input[aria-invalid="true"] { border-color: var(--ax-danger, #dc766a); }
-.legura-editor__toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.legura-editor__toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 0.5rem; }
+.legura-editor__toolbar label { display: grid; gap: 0.25rem; min-width: 0; max-width: 100%; }
+.legura-editor [data-editor-link] { box-sizing: border-box; width: 100%; min-width: 0; min-height: 2.75rem; padding: 0.5rem; font: inherit; color: inherit; background: var(--ax-surface, #16191e); border: 1px solid var(--ax-border, #525860); border-radius: 0.35rem; }
+.legura-editor [data-editor-link]:focus-visible { outline: 2px solid var(--ax-primary, #c5a76a); outline-offset: 2px; }
+.legura-editor__surface a { color: var(--ax-primary, #c5a76a); text-decoration: underline; text-underline-offset: 0.15em; }
 .legura-editor__toolbar button {
   min-height: 2.75rem;
   padding: 0.5rem 0.8rem;

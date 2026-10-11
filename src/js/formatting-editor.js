@@ -1,4 +1,4 @@
-import { validateParagraphDocument } from './paragraph-editor.js';
+import { validateParagraphDocument, validateLink } from './paragraph-editor.js';
 
 const instances = new WeakMap();
 const emptyDocument = { format: 'legura-richtext', version: 1, blocks: [
@@ -16,7 +16,7 @@ function decode(document) {
     if (index) atoms.push(['\n', 0]);
     for (const run of block.children) {
       const mask = (run.marks.includes('bold') ? 1 : 0) | (run.marks.includes('italic') ? 2 : 0);
-      for (const character of run.text) atoms.push([character, mask]);
+      for (const character of run.text) atoms.push([character, mask, run.link]);
     }
   });
   return atoms;
@@ -34,16 +34,16 @@ function encode(atoms, styles) {
       children: children.length ? children : [{ text: '', marks: [] }] });
     children = [];
   };
-  for (const [character, mask] of atoms) {
+  for (const [character, mask, link] of atoms) {
     if (character === '\n') { finish(); continue; }
     const previous = children.at(-1);
     const selected = marks(mask);
-    if (previous && previous.marks.join() === selected.join()) previous.text += character;
-    else children.push({ text: character, marks: selected });
+    if (previous && previous.marks.join() === selected.join() && previous.link === link) previous.text += character;
+    else children.push({ text: character, marks: selected, ...(link === undefined ? {} : { link }) });
   }
   finish();
   if (styles.length !== blocks.length) throw new Error('Block metadata does not match the document.');
-  return validateParagraphDocument({ format: 'legura-richtext', version: 1, blocks }, true, true, true);
+  return validateParagraphDocument({ format: 'legura-richtext', version: 1, blocks }, true, true, true, true);
 }
 
 export function mountFormattingEditor(root, options = {}) {
@@ -55,6 +55,9 @@ export function mountFormattingEditor(root, options = {}) {
   const buttons = Array.from(root.querySelectorAll('[data-editor-command]'));
   const expected = options.allowHeadings ? ['bold', 'italic', 'undo', 'redo', 'paragraph', 'heading-2', 'heading-3'] : ['bold', 'italic', 'undo', 'redo'];
   if (options.allowLists) expected.push('unordered-list', 'ordered-list');
+  if (options.allowLinks) expected.push('link', 'unlink');
+  const linkInput = root.querySelector('[data-editor-link]');
+  if (options.allowLinks && !linkInput) throw new Error('Missing link address input.');
   if (!input || !field || !error || !preview || buttons.length !== expected.length
     || expected.some(command => buttons.filter(button => button.dataset.editorCommand === command).length !== 1)) throw new Error('Incomplete formatting editor markup.');
   const form = field.form;
@@ -96,6 +99,10 @@ export function mountFormattingEditor(root, options = {}) {
       if (options.isSuspended?.()) button.disabled = true;
       else if (command === 'undo') button.disabled = !initialized || (valid && cursor === 0);
       else if (command === 'redo') button.disabled = !valid || cursor >= history.length - 1;
+      else if (command === 'link' || command === 'unlink') {
+        button.disabled = !valid || composing || !chosen.some(Boolean)
+          || (command === 'unlink' && !atoms.some((atom, index) => chosen[index] && atom[2] !== undefined));
+      }
       else if (command === 'paragraph' || command.startsWith('heading-') || command.endsWith('-list')) {
         const style = commandStyle(command);
         const blocks = selectedBlocks();
@@ -108,6 +115,7 @@ export function mountFormattingEditor(root, options = {}) {
         button.setAttribute('aria-pressed', String(!button.disabled && atoms.every((atom, index) => !chosen[index] || (atom[1] & mask))));
       }
     }
+    if (linkInput) linkInput.disabled = !valid || composing || Boolean(options.isSuspended?.());
   };
   const fail = message => {
     valid = false;
@@ -143,6 +151,13 @@ export function mountFormattingEditor(root, options = {}) {
           const wrapper = root.ownerDocument.createElement(tag === 'bold' ? 'strong' : 'em');
           wrapper.append(node);
           node = wrapper;
+        }
+        if (run.link !== undefined) {
+          const anchor = root.ownerDocument.createElement('a');
+          anchor.setAttribute('href', run.link);
+          anchor.setAttribute('rel', 'nofollow ugc');
+          anchor.append(node);
+          node = anchor;
         }
         p.append(node);
       }
@@ -205,7 +220,10 @@ export function mountFormattingEditor(root, options = {}) {
     }
     beforeEdit = null;
     const inherited = prefix > 0 && before[prefix - 1] !== '\n' ? atoms[prefix - 1][1] : 0;
-    const inserted = after.slice(prefix, after.length - suffix).map(character => [character, character === '\n' ? 0 : inherited]);
+    // Inherit links only inside an existing run, never at its boundary.
+    const right = atoms[before.length - suffix];
+    const inheritedLink = prefix > 0 && atoms[prefix - 1][2] === right?.[2] ? right?.[2] : undefined;
+    const inserted = after.slice(prefix, after.length - suffix).map(character => [character, character === '\n' ? 0 : inherited, character === '\n' ? undefined : inheritedLink]);
     const next = [...atoms.slice(0, prefix), ...inserted, ...atoms.slice(before.length - suffix)];
     const first = before.slice(0, prefix).filter(character => character === '\n').length;
     const last = before.slice(0, before.length - suffix).filter(character => character === '\n').length;
@@ -221,6 +239,19 @@ export function mountFormattingEditor(root, options = {}) {
       else if (cursor > 0) restore(history[--cursor]);
     } else if (name === 'redo') {
       if (valid && cursor < history.length - 1) restore(history[++cursor]);
+    } else if (valid && options.allowLinks && (name === 'link' || name === 'unlink')) {
+      const chosen = selectedAtoms();
+      if (!chosen.some(Boolean)) return;
+      try {
+        const destination = name === 'link' ? validateLink(linkInput.value) : undefined;
+        const next = atoms.map((atom, index) => chosen[index] ? [atom[0], atom[1], destination] : atom);
+        if (next.some((atom, index) => atom[2] !== atoms[index][2])) commit(next);
+        error.textContent = '';
+      } catch (failure) {
+        error.textContent = failure.message;
+        linkInput.focus();
+        return;
+      }
     } else if (valid && (name === 'paragraph' || name.startsWith('heading-') || name.endsWith('-list'))) {
       const style = commandStyle(name);
       const chosen = selectedBlocks();
@@ -233,7 +264,7 @@ export function mountFormattingEditor(root, options = {}) {
       if (!chosen.some(Boolean)) return;
       const mask = name === 'bold' ? 1 : 2;
       const remove = atoms.every((atom, index) => !chosen[index] || (atom[1] & mask));
-      const next = atoms.map((atom, index) => chosen[index] ? [atom[0], remove ? atom[1] & ~mask : atom[1] | mask] : atom);
+      const next = atoms.map((atom, index) => chosen[index] ? [atom[0], remove ? atom[1] & ~mask : atom[1] | mask, atom[2]] : atom);
       try { commit(next); } catch (failure) { fail(failure.message); }
     }
     if (options.focus) options.focus();
@@ -243,7 +274,7 @@ export function mountFormattingEditor(root, options = {}) {
   try {
     const source = root.dataset.document || JSON.stringify(emptyDocument);
     if (new TextEncoder().encode(source).length > 32768) throw new Error('Document exceeds 32 KiB.');
-    const document = validateParagraphDocument(JSON.parse(source), true, Boolean(options.allowHeadings), Boolean(options.allowLists));
+    const document = validateParagraphDocument(JSON.parse(source), true, Boolean(options.allowHeadings), Boolean(options.allowLists), Boolean(options.allowLinks));
     atoms = decode(document);
     styles = document.blocks.map(blockStyle);
     initial = atoms;
@@ -277,6 +308,11 @@ export function mountFormattingEditor(root, options = {}) {
     command(key === 'b' ? 'bold' : key === 'i' ? 'italic' : key === 'y' || event.shiftKey ? 'redo' : 'undo');
   }, listeners);
   for (const button of buttons) button.addEventListener('click', () => command(button.dataset.editorCommand), listeners);
+  linkInput?.addEventListener('keydown', event => {
+    if (event.isComposing || options.isSuspended?.()) return;
+    if (event.key === 'Enter') { event.preventDefault(); command('link'); }
+    else if (event.key === 'Escape') { event.preventDefault(); options.focus?.(); }
+  }, listeners);
   form?.addEventListener('submit', event => {
     if (!valid || composing || !initialized) { event.preventDefault(); input.reportValidity(); }
   }, listeners);
@@ -301,6 +337,7 @@ export function mountFormattingEditor(root, options = {}) {
     input.readOnly = true;
     field.disabled = true;
     for (const button of buttons) button.disabled = true;
+    if (linkInput) linkInput.disabled = true;
     history = [];
     instances.delete(root);
   } };

@@ -1,6 +1,6 @@
 # Rich Text Editor V0
 
-An isolated in-place paragraph/heading/flat-list editor with bold/italic, plain-text paste and
+An isolated in-place paragraph/heading/flat-list editor with bold/italic, links, plain-text paste and
 bounded undo/redo. This is a browser pilot, not a released CMS editor.
 
 ## Usage
@@ -44,7 +44,7 @@ Changing an item to a heading/paragraph splits the list into separate groups.
 Selection offsets count item separators even though the DOM wraps items in a
 list container. No nested lists, indentation, custom start numbers or task lists.
 
-No links, pending-caret formatting, drag/drop or browser-native
+No pending-caret formatting, drag/drop or browser-native
 editing menu support yet. Unsupported beforeinput operations are canceled.
 Typing inherits preceding marks as in FormattingEditor. IME composition now
 uses a transaction anchored to the original model selection. Native temporary
@@ -79,3 +79,28 @@ The WebKit engine test is not a claim of having tested Safari on macOS/iOS.
 
 References: [compositionend](https://developer.mozilla.org/en-US/docs/Web/API/Element/compositionend_event)
 and [Chromium Input protocol](https://chromedevtools.github.io/devtools-protocol/tot/Input/).
+## Selected Links V0
+
+Select text, enter an absolute HTTP/HTTPS address, and choose Apply link (or
+press Enter in the address field). Remove link clears only the selected text's
+destination. A collapsed caret cannot create or remove a link; select its text.
+Empty linked runs cannot be represented in the per-character model, so imports
+containing them are refused without dropping metadata (the Rust core accepts them).
+Changing an existing link uses the same apply control. Escape returns focus to
+the editing surface. The address is a scratch control, not a submitted field or
+an automatic reflection of the selected link. Invalid destinations leave the
+validated document/history intact and show a status message.
+
+Links are part of per-character model metadata and run grouping, not serialized
+from DOM. Bold/italic, block styles, reload/reset and undo/redo preserve them.
+Typing inside a link inherits its destination only when both neighboring atoms
+have that destination; typing at a boundary is unlinked. Newlines never carry
+destinations. Plain-text paste follows the same rule, discarding external HTML.
+Selecting across blocks creates separate linked runs, never a cross-block anchor.
+Editor anchors suppress navigation; published Rust HTML links navigate normally.
+Link controls are disabled during composition and after teardown. No local-path
+links, target options, link detection, popup preview or drag/drop in V0.
+
+Three-engine tests use synthetic IME/clipboard fixtures for linked text, not a
+claim of physical OS/mobile IME or system clipboard acceptance. The existing
+trusted Chromium CDP IME tests cover the shared editor transaction engine.
