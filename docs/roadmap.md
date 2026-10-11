@@ -38,6 +38,11 @@ preview, with mark-aware bounded history, input/reset/teardown and IME submissio
 protection. See formatting-editor-v0.md. In-place WYSIWYG, real IME matrix and
 server action/persistence integration remain future gates.
 
+RichTextEditor V0 adds an isolated in-place surface over the same model/history.
+Typing, paragraph splitting, selection formatting, plain-text paste and safe
+recovery have Chromium checks. IME is explicitly refused, not claimed supported.
+Cross-browser/IME, headings/lists/links and persistence remain open gates.
+
 ## 4. Legura Pilot
 
 Agree explicit content-format storage and migration policy. Integrate one

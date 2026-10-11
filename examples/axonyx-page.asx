@@ -1,5 +1,6 @@
 import { ParagraphEditor } from "@/components/ParagraphEditor"
 import { FormattingEditor } from "@/components/FormattingEditor"
+import { RichTextEditor } from "@/components/RichTextEditor"
 
 page EditorPilot() {
   return ASX {
@@ -13,6 +14,9 @@ page EditorPilot() {
       </form>
       <form>
         <FormattingEditor name="formatted_document" label="Formatted content" />
+      </form>
+      <form>
+        <RichTextEditor name="rich_document" label="Rich content" />
       </form>
     </section>
   }
