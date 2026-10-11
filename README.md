@@ -48,6 +48,8 @@ The new [RichTextEditor pilot](docs/rich-text-editor-v0.md) displays and edits
 paragraphs with bold/italic in place, reusing that model/history. Plain-text
 paste only; IME transaction handling has trusted Chromium protocol tests.
 Real OS/browser IME acceptance remains open. It is not integrated or published.
+RichTextEditor also supports H2/H3 text blocks with safe Rust rendering,
+block-style conversion and metadata-aware history. Lists and links remain planned.
 
 ## Development
 
