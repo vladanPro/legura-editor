@@ -3,8 +3,8 @@
 An independent rich-text editor project for Legura and, later, other Axonyx
 applications. Foundry UI supplies the visual language; Legura owns publishing.
 
-Status: experimental Rust paragraph/text validation and rendering core on a
-feature branch, plus an isolated paragraph editor pilot. No Cargo/npm release,
+Status: experimental Rust paragraph/text validation and rendering core on dev,
+plus isolated paragraph, formatting and in-place editor pilots. No Cargo/npm release,
 React adapter or Legura integration is shipped yet.
 
 ## Direction
@@ -56,6 +56,17 @@ and reusable contracts here, not copied into Legura. Integration will consume a
 versioned package once the first slice is usable. Package names and license are
 not selected or reserved by this scaffold.
 
-Browser verification will initially use available tooling. Aegis can take over
+Browser verification runs Chromium, Firefox and WebKit in isolated CI jobs:
+
+```sh
+node tests/browser.mjs ../legura chromium
+node tests/browser.mjs ../legura firefox
+node tests/browser.mjs ../legura webkit
+```
+
+The first argument supplies an existing test-only Playwright installation, not
+a runtime dependency. Native CDP IME testing is Chromium-only. Clipboard fixtures
+are synthetic and do not prove operating-system clipboard integration.
+Aegis can take over
 when its browser backend provides equivalent assertions; HTTP checks alone
 cannot prove caret, toolbar or keyboard behavior.

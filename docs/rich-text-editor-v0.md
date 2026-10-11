@@ -47,13 +47,17 @@ must never mean deletion. No DB change, autosave, collaboration or package relea
 
 ## Verification
 
-Run node tests/browser.mjs ../legura with an existing test-only Playwright install.
-Chromium checks cover actual typing/Enter/deletion, selected in-place marks,
+Run node tests/browser.mjs ../legura chromium (or firefox/webkit) with an existing
+test-only Playwright install. All three engine suites cover actual typing/Enter/deletion, selected in-place marks,
 keyboard history, emoji, plain-text malicious paste, document reload, over-limit
 rejection, unexpected DOM recovery, reset, mobile width, teardown and no-JS.
 IME tests use trusted Input.imeSetComposition and Input.insertText via CDP,
 plus synthetic boundary tests for limits, literal text, reset/blur and teardown.
-This is not a cross-browser/physical-IME/accessibility audit.
+Cross-paragraph cut/undo and independent editor instances are included.
+Clipboard events are explicit synthetic fixtures because Firefox's
+ClipboardEvent constructor does not retain a supplied DataTransfer payload.
+This is not physical-IME, OS clipboard, actual Safari/mobile or accessibility QA.
+The WebKit engine test is not a claim of having tested Safari on macOS/iOS.
 
 References: [compositionend](https://developer.mozilla.org/en-US/docs/Web/API/Element/compositionend_event)
 and [Chromium Input protocol](https://chromedevtools.github.io/devtools-protocol/tot/Input/).

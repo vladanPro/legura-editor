@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
+import { pasteFixture } from './clipboard-fixture.mjs';
 
 export async function checkRichText(page, baseUrl) {
   await page.goto(`${baseUrl}/examples/richtext.html`);
   await page.waitForFunction(() => window.richtextHandle);
-  const surface = page.locator('[data-editor-preview]');
-  const field = page.locator('[data-editor-document]');
+  const surface = page.locator('#richtext [data-editor-preview]');
+  const field = page.locator('#richtext [data-editor-document]');
   const text = async () => JSON.parse(await field.inputValue()).blocks.map(block => block.children.map(run => run.text).join('')).join('\n');
   const select = async (start, end) => {
     await surface.evaluate((node, [start, end]) => {
@@ -49,13 +50,27 @@ export async function checkRichText(page, baseUrl) {
   await surface.pressSequentially('Second');
   assert.equal(await text(), 'Hello world\nSecond');
   assert.equal(await surface.locator('p').count(), 2);
-  await surface.press('Control+a');
-  await surface.evaluate(node => {
+  const cutText = await surface.evaluate(node => {
+    const first = node.children[0].lastChild;
+    const second = node.children[1].firstChild;
+    const range = document.createRange();
+    range.setStart(first, first.length); range.setEnd(second, 1);
+    const selection = document.getSelection();
+    selection.removeAllRanges(); selection.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
     const clipboardData = new DataTransfer();
-    clipboardData.setData('text/plain', '<img src=x onerror=evil()>🙂\nČ');
-    clipboardData.setData('text/html', '<img src=x onerror=evil()>');
-    node.dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }));
+    const event = new Event('cut', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: clipboardData });
+    node.dispatchEvent(event);
+    return clipboardData.getData('text/plain');
   });
+  assert.equal(cutText, '\nS');
+  assert.equal(await text(), 'Hello worldecond', 'A cross-paragraph cut must merge the paragraphs without losing marks');
+  await surface.press('Control+z');
+  assert.equal(await text(), 'Hello world\nSecond');
+  assert.equal(await surface.locator('strong em').textContent(), 'Hello');
+  await surface.press('Control+a');
+  await surface.evaluate(pasteFixture, { text: '<img src=x onerror=evil()>🙂\nČ', html: '<img src=x onerror=evil()>' });
   assert.equal(await text(), '<img src=x onerror=evil()>🙂\nČ');
   assert.equal(await surface.locator('img, script').count(), 0);
   const saved = await field.inputValue();
@@ -76,11 +91,7 @@ export async function checkRichText(page, baseUrl) {
   assert.equal(await field.inputValue(), saved);
   await surface.focus();
   await surface.press('Control+a');
-  await surface.evaluate(node => {
-    const clipboardData = new DataTransfer();
-    clipboardData.setData('text/plain', 'x'.repeat(20001));
-    node.dispatchEvent(new ClipboardEvent('paste', { clipboardData, cancelable: true }));
-  });
+  await surface.evaluate(pasteFixture, { text: 'x'.repeat(20001) });
   assert.equal(await field.inputValue(), saved, 'An over-limit edit must preserve the last valid document');
   await surface.evaluate(node => {
     node.append(document.createElement('img'));
@@ -97,8 +108,24 @@ export async function checkRichText(page, baseUrl) {
   assert.equal(await field.inputValue(), saved);
   await page.setViewportSize({ width: 320, height: 800 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.evaluate(async () => {
+    const form = document.querySelector('#richtext').cloneNode(true);
+    form.id = 'richtext-second';
+    const root = form.querySelector('[data-legura-editor]');
+    root.dataset.document = '';
+    document.querySelector('main').append(form);
+    const { mountRichTextEditor } = await import('/src/js/rich-text-editor.js');
+    window.secondRichtextHandle = mountRichTextEditor(root);
+  });
+  const firstDocument = await field.inputValue();
+  const second = page.locator('#richtext-second [data-editor-preview]');
+  await second.focus();
+  await second.pressSequentially('Independent');
+  assert.equal(await field.inputValue(), firstDocument);
+  assert.equal(await second.textContent(), 'Independent');
+  await page.evaluate(() => window.secondRichtextHandle.destroy());
   await page.evaluate(() => window.richtextHandle.destroy());
   assert.equal(await surface.getAttribute('contenteditable'), 'false');
   assert.equal(await field.isDisabled(), true);
-  console.log('Rich-text pilot passed: real typing, in-place marks, selection, history, paragraphs, literal paste, reload, limits, unexpected DOM recovery, reset, mobile and teardown.');
+  console.log('Rich-text pilot passed: real typing, in-place marks, cross-paragraph cut/history, literal paste, reload, limits, DOM recovery, reset, mobile, independent instances and teardown.');
 }

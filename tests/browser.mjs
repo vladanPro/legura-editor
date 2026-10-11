@@ -11,7 +11,9 @@ import { checkIme } from './ime-checks.mjs';
 
 const tooling = process.argv[2];
 assert.ok(tooling, 'Pass the directory containing the test-only Playwright install');
-const { chromium } = createRequire(resolve(tooling, 'package.json'))('playwright');
+const engines = createRequire(resolve(tooling, 'package.json'))('playwright');
+const browserName = process.argv[3] || 'chromium';
+assert.ok(['chromium', 'firefox', 'webkit'].includes(browserName), 'Choose chromium, firefox or webkit');
 const root = fileURLToPath(new URL('../', import.meta.url));
 const files = new Map([
   ['/examples/paragraphs.html', 'text/html'],
@@ -33,7 +35,7 @@ const server = createServer(async (request, response) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 let browser;
 try {
-  browser = await chromium.launch();
+  browser = await engines[browserName].launch();
   const url = `http://127.0.0.1:${server.address().port}/examples/paragraphs.html`;
   const page = await browser.newPage();
   const errors = [];
@@ -109,9 +111,10 @@ try {
   await noJs.close();
   await checkFormatting(page, `http://127.0.0.1:${server.address().port}`);
   await checkRichText(page, `http://127.0.0.1:${server.address().port}`);
-  await checkIme(page, `http://127.0.0.1:${server.address().port}`);
+  if (browserName === 'chromium') await checkIme(page, `http://127.0.0.1:${server.address().port}`);
+  else console.log(`${browserName}: native CDP IME checks are Chromium-only; physical IME coverage remains open.`);
   assert.deepEqual(errors, []);
-  console.log('Paragraph browser pilot passed: isolated instances, literal paste/input, JSON, limits/retry, reset, undo/redo, teardown, unsupported document refusal, mobile and no-JS fallback.');
+  console.log(`${browserName} browser pilot passed: isolated instances, literal paste/input, JSON, limits/retry, reset, undo/redo, teardown, unsupported document refusal, mobile and no-JS fallback.`);
 } finally {
   if (browser) await browser.close();
   await new Promise(resolve => server.close(resolve));

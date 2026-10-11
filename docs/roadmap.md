@@ -42,7 +42,10 @@ RichTextEditor V0 adds an isolated in-place surface over the same model/history.
 Typing, paragraph splitting, selection formatting, plain-text paste and safe
 recovery have Chromium checks. IME transactions now have trusted Chromium
 composition/update/commit/cancel tests with one-step history and guarded submit.
-Cross-browser/physical-IME, headings/lists/links and persistence remain open gates.
+Chromium/Firefox/WebKit browser suites now cover the shared editing path,
+including cross-paragraph cut/history and independent instances. Clipboard
+fixtures are synthetic; native CDP IME remains Chromium-only. Physical OS/mobile
+IME and clipboard QA, headings/lists/links and persistence remain open gates.
 
 ## 4. Legura Pilot
 
