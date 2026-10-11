@@ -45,12 +45,18 @@ composition/update/commit/cancel tests with one-step history and guarded submit.
 Chromium/Firefox/WebKit browser suites now cover the shared editing path,
 including cross-paragraph cut/history and independent instances. Clipboard
 fixtures are synthetic; native CDP IME remains Chromium-only. Physical OS/mobile
-IME and clipboard QA, lists/links and persistence remain open gates.
+IME and clipboard QA, links and persistence remain open gates.
 
 Headings V0 adds strict H2/H3 document blocks, escaped Rust h2/h3 rendering,
 Paragraph/H2/H3 controls, selected-block conversion and metadata-aware history.
 Enter starts a paragraph; merges retain the first block style. Three-engine
 checks cover marks, split/merge, empty headings, reload/reset and legacy refusal.
+
+Flat Lists V0 adds strict unordered/ordered item blocks, grouped escaped Rust
+ul/ol/li rendering and Bullets/Numbered controls. Enter continues a list; Enter
+on an empty item exits to a paragraph. Three-engine checks cover conversion,
+marks, grouping, container selection, split/merge, multiline paste and history.
+Chromium native IME is also tested inside an item. Nested/task lists are deferred.
 
 ## 4. Legura Pilot
 

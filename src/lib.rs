@@ -54,22 +54,57 @@ enum Format {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(tag = "type", rename_all = "lowercase", deny_unknown_fields)]
+#[serde(tag = "type", rename_all = "kebab-case", deny_unknown_fields)]
 enum Block {
-    Paragraph { children: Vec<TextRun> },
-    Heading { level: u8, children: Vec<TextRun> },
+    Paragraph {
+        children: Vec<TextRun>,
+    },
+    Heading {
+        level: u8,
+        children: Vec<TextRun>,
+    },
+    ListItem {
+        list: ListKind,
+        children: Vec<TextRun>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum ListKind {
+    Unordered,
+    Ordered,
+}
+
+impl ListKind {
+    fn open(self) -> &'static str {
+        match self {
+            Self::Unordered => "<ul>",
+            Self::Ordered => "<ol>",
+        }
+    }
+    fn close(self) -> &'static str {
+        match self {
+            Self::Unordered => "</ul>",
+            Self::Ordered => "</ol>",
+        }
+    }
 }
 
 impl Block {
     fn children(&self) -> &[TextRun] {
         match self {
-            Self::Paragraph { children } | Self::Heading { children, .. } => children,
+            Self::Paragraph { children }
+            | Self::Heading { children, .. }
+            | Self::ListItem { children, .. } => children,
         }
     }
 
     fn children_mut(&mut self) -> &mut [TextRun] {
         match self {
-            Self::Paragraph { children } | Self::Heading { children, .. } => children,
+            Self::Paragraph { children }
+            | Self::Heading { children, .. }
+            | Self::ListItem { children, .. } => children,
         }
     }
 }
@@ -143,11 +178,26 @@ impl Document {
     /// Fixed tags plus escaped text only; no submitted attributes or raw HTML.
     pub fn render_html(&self) -> String {
         let mut html = String::new();
+        let mut current_list: Option<ListKind> = None;
         for block in &self.0.blocks {
+            let next_list = match block {
+                Block::ListItem { list, .. } => Some(*list),
+                _ => None,
+            };
+            if current_list != next_list {
+                if let Some(list) = current_list {
+                    html.push_str(list.close());
+                }
+                if let Some(list) = next_list {
+                    html.push_str(list.open());
+                }
+                current_list = next_list;
+            }
             let (open, close) = match block {
                 Block::Paragraph { .. } => ("<p>", "</p>"),
                 Block::Heading { level: 2, .. } => ("<h2>", "</h2>"),
                 Block::Heading { .. } => ("<h3>", "</h3>"),
+                Block::ListItem { .. } => ("<li>", "</li>"),
             };
             html.push_str(open);
             for run in block.children() {
@@ -175,6 +225,9 @@ impl Document {
                 }
             }
             html.push_str(close);
+        }
+        if let Some(list) = current_list {
+            html.push_str(list.close());
         }
         html
     }
@@ -208,6 +261,44 @@ mod tests {
                 .render_html(),
             expected
         );
+    }
+
+    #[test]
+    fn flat_lists_group_and_render_safely() {
+        let item = |list: &str, text: &str| json!({"type":"list-item","list":list,"children":[{"text":text,"marks":["bold"]}]});
+        let raw = json!({"format":"legura-richtext","version":1,"blocks":[
+            item("unordered", "<A>"), item("unordered", "B"), item("ordered", "C"),
+            {"type":"heading","level":2,"children":[{"text":"Break","marks":[]}]},
+            item("ordered", "D"),
+            {"type":"paragraph","children":[{"text":"Body","marks":[]}]},
+            item("unordered", "")
+        ]});
+        let doc = Document::parse_json(&raw.to_string()).unwrap();
+        let expected = "<ul><li><strong>&lt;A&gt;</strong></li><li><strong>B</strong></li></ul><ol><li><strong>C</strong></li></ol><h2>Break</h2><ol><li><strong>D</strong></li></ol><p>Body</p><ul><li><strong></strong></li></ul>";
+        assert_eq!(doc.render_html(), expected);
+        assert_eq!(
+            Document::parse_json(&doc.to_json().unwrap())
+                .unwrap()
+                .render_html(),
+            expected
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_list_kinds_and_nested_lists() {
+        for block in [
+            json!({"type":"list-item","children":[{"text":"private","marks":[]}]}),
+            json!({"type":"list-item","list":"script","children":[{"text":"private","marks":[]}]}),
+            json!({"type":"list-item","list":true,"children":[{"text":"private","marks":[]}]}),
+            json!({"type":"list-item","list":"ordered","level":2,"children":[{"text":"private","marks":[]}]}),
+            json!({"type":"paragraph","list":"unordered","children":[{"text":"private","marks":[]}]}),
+            json!({"type":"list-item","list":"unordered","children":[{"type":"list-item","list":"ordered","children":[]}]}),
+        ] {
+            let raw = json!({"format":"legura-richtext","version":1,"blocks":[block]});
+            let error = Document::parse_json(&raw.to_string()).unwrap_err();
+            assert_eq!(error, DocumentError::InvalidStructure);
+            assert!(!error.to_string().contains("private"));
+        }
     }
 
     #[test]

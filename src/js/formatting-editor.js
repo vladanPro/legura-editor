@@ -6,6 +6,9 @@ const emptyDocument = { format: 'legura-richtext', version: 1, blocks: [
 ] };
 const marks = mask => ['bold', 'italic'].filter((_, index) => mask & (1 << index));
 const textOf = atoms => atoms.map(atom => atom[0]).join('');
+const isList = style => ['unordered', 'ordered'].includes(style);
+const blockStyle = block => block.type === 'heading' ? `heading-${block.level}` : block.type === 'list-item' ? block.list : 'paragraph';
+const commandStyle = name => name === 'unordered-list' ? 'unordered' : name === 'ordered-list' ? 'ordered' : name;
 
 function decode(document) {
   const atoms = [];
@@ -19,12 +22,15 @@ function decode(document) {
   return atoms;
 }
 
-function encode(atoms, levels) {
+function encode(atoms, styles) {
   const blocks = [];
   let children = [];
   const finish = () => {
-    const level = levels[blocks.length] || 0;
-    blocks.push({ type: level ? 'heading' : 'paragraph', ...(level ? { level } : {}),
+    const style = styles[blocks.length];
+    if (!['paragraph', 'heading-2', 'heading-3', 'unordered', 'ordered'].includes(style)) throw new Error('Unsupported block style.');
+    const metadata = isList(style) ? { type: 'list-item', list: style }
+      : style === 'paragraph' ? { type: 'paragraph' } : { type: 'heading', level: Number(style.slice(-1)) };
+    blocks.push({ ...metadata,
       children: children.length ? children : [{ text: '', marks: [] }] });
     children = [];
   };
@@ -36,8 +42,8 @@ function encode(atoms, levels) {
     else children.push({ text: character, marks: selected });
   }
   finish();
-  if (levels.length !== blocks.length) throw new Error('Block metadata does not match the document.');
-  return validateParagraphDocument({ format: 'legura-richtext', version: 1, blocks }, true, true);
+  if (styles.length !== blocks.length) throw new Error('Block metadata does not match the document.');
+  return validateParagraphDocument({ format: 'legura-richtext', version: 1, blocks }, true, true, true);
 }
 
 export function mountFormattingEditor(root, options = {}) {
@@ -48,13 +54,14 @@ export function mountFormattingEditor(root, options = {}) {
   const preview = root.querySelector('[data-editor-preview]');
   const buttons = Array.from(root.querySelectorAll('[data-editor-command]'));
   const expected = options.allowHeadings ? ['bold', 'italic', 'undo', 'redo', 'paragraph', 'heading-2', 'heading-3'] : ['bold', 'italic', 'undo', 'redo'];
+  if (options.allowLists) expected.push('unordered-list', 'ordered-list');
   if (!input || !field || !error || !preview || buttons.length !== expected.length
     || expected.some(command => buttons.filter(button => button.dataset.editorCommand === command).length !== 1)) throw new Error('Incomplete formatting editor markup.');
   const form = field.form;
   const controller = new AbortController();
   const listeners = { signal: controller.signal };
   let atoms = [];
-  let levels = [0];
+  let styles = ['paragraph'];
   let history = [];
   let cursor = 0;
   let active = true;
@@ -62,7 +69,7 @@ export function mountFormattingEditor(root, options = {}) {
   let valid = false;
   let composing = false;
   let initial = [];
-  let initialLevels = [0];
+  let initialStyles = ['paragraph'];
   let beforeEdit = null;
   const selection = () => [input.selectionStart, input.selectionEnd];
   const selectedAtoms = () => {
@@ -80,7 +87,7 @@ export function mountFormattingEditor(root, options = {}) {
     const first = text.slice(0, start).split('\n').length - 1;
     // A selection ending at the next block's start does not include that block.
     const last = text.slice(0, end > start ? end - 1 : end).split('\n').length - 1;
-    return levels.map((_, index) => index >= first && index <= last);
+    return styles.map((_, index) => index >= first && index <= last);
   };
   const controls = () => {
     const chosen = selectedAtoms();
@@ -89,11 +96,11 @@ export function mountFormattingEditor(root, options = {}) {
       if (options.isSuspended?.()) button.disabled = true;
       else if (command === 'undo') button.disabled = !initialized || (valid && cursor === 0);
       else if (command === 'redo') button.disabled = !valid || cursor >= history.length - 1;
-      else if (command === 'paragraph' || command.startsWith('heading-')) {
-        const level = command === 'paragraph' ? 0 : Number(command.slice(-1));
+      else if (command === 'paragraph' || command.startsWith('heading-') || command.endsWith('-list')) {
+        const style = commandStyle(command);
         const blocks = selectedBlocks();
         button.disabled = !valid || composing;
-        button.setAttribute('aria-pressed', String(!button.disabled && levels.every((value, index) => !blocks[index] || value === level)));
+        button.setAttribute('aria-pressed', String(!button.disabled && styles.every((value, index) => !blocks[index] || value === style)));
       }
       else {
         const mask = command === 'bold' ? 1 : 2;
@@ -111,7 +118,7 @@ export function mountFormattingEditor(root, options = {}) {
     controls();
   };
   const render = () => {
-    const document = encode(atoms, levels);
+    const document = encode(atoms, styles);
     field.value = JSON.stringify(document);
     field.disabled = false;
     valid = true;
@@ -119,8 +126,17 @@ export function mountFormattingEditor(root, options = {}) {
     input.removeAttribute('aria-invalid');
     error.textContent = '';
     const fragment = root.ownerDocument.createDocumentFragment();
+    let listGroup = null;
     for (const block of document.blocks) {
-      const p = root.ownerDocument.createElement(block.type === 'heading' ? `h${block.level}` : 'p');
+      const p = root.ownerDocument.createElement(block.type === 'heading' ? `h${block.level}` : block.type === 'list-item' ? 'li' : 'p');
+      p.dataset.editorBlock = 'true';
+      if (block.type === 'list-item') {
+        const tag = block.list === 'unordered' ? 'ul' : 'ol';
+        if (!listGroup || listGroup.localName !== tag) {
+          listGroup = root.ownerDocument.createElement(tag);
+          fragment.append(listGroup);
+        }
+      } else listGroup = null;
       for (const run of block.children) {
         let node = root.ownerDocument.createTextNode(run.text);
         for (const tag of [...run.marks].reverse()) {
@@ -130,7 +146,7 @@ export function mountFormattingEditor(root, options = {}) {
         }
         p.append(node);
       }
-      fragment.append(p);
+      (listGroup || fragment).append(p);
     }
     preview.replaceChildren(fragment);
     controls();
@@ -139,18 +155,18 @@ export function mountFormattingEditor(root, options = {}) {
   const restore = snapshot => {
     beforeEdit = null;
     atoms = snapshot.atoms;
-    levels = snapshot.levels;
+    styles = snapshot.styles;
     input.value = textOf(atoms);
     input.setSelectionRange(...snapshot.selection);
     render();
   };
-  const commit = (next, selected = selection(), keepPreviousSelection = false, nextLevels = levels) => {
-    encode(next, nextLevels); // Validate before changing the model/history.
+  const commit = (next, selected = selection(), keepPreviousSelection = false, nextStyles = styles) => {
+    encode(next, nextStyles); // Validate before changing the model/history.
     if (!keepPreviousSelection) history[cursor].selection = selection();
     atoms = next;
-    levels = nextLevels;
+    styles = nextStyles;
     history = history.slice(0, cursor + 1);
-    history.push({ atoms, levels, selection: selected });
+    history.push({ atoms, styles, selection: selected });
     // Bound history by snapshot count AND retained code points, not just steps.
     while (history.length > 50 || (history.length > 1 && history.reduce((sum, entry) => sum + entry.atoms.length, 0) > 100000)) history.shift();
     cursor = history.length - 1;
@@ -193,9 +209,10 @@ export function mountFormattingEditor(root, options = {}) {
     const next = [...atoms.slice(0, prefix), ...inserted, ...atoms.slice(before.length - suffix)];
     const first = before.slice(0, prefix).filter(character => character === '\n').length;
     const last = before.slice(0, before.length - suffix).filter(character => character === '\n').length;
-    const added = inserted.filter(atom => atom[0] === '\n').map(() => 0);
-    const nextLevels = [...levels.slice(0, first), levels[first], ...added, ...levels.slice(last + 1)];
-    try { commit(next, selection(), true, nextLevels); } catch (failure) { fail(failure.message); }
+    const continuation = isList(styles[first]) ? styles[first] : 'paragraph';
+    const added = inserted.filter(atom => atom[0] === '\n').map(() => continuation);
+    const nextStyles = [...styles.slice(0, first), styles[first], ...added, ...styles.slice(last + 1)];
+    try { commit(next, selection(), true, nextStyles); } catch (failure) { fail(failure.message); }
   };
   const command = name => {
     if (!initialized || composing || options.isSuspended?.()) return;
@@ -204,12 +221,12 @@ export function mountFormattingEditor(root, options = {}) {
       else if (cursor > 0) restore(history[--cursor]);
     } else if (name === 'redo') {
       if (valid && cursor < history.length - 1) restore(history[++cursor]);
-    } else if (valid && (name === 'paragraph' || name.startsWith('heading-'))) {
-      const level = name === 'paragraph' ? 0 : Number(name.slice(-1));
+    } else if (valid && (name === 'paragraph' || name.startsWith('heading-') || name.endsWith('-list'))) {
+      const style = commandStyle(name);
       const chosen = selectedBlocks();
-      const nextLevels = levels.map((value, index) => chosen[index] ? level : value);
-      if (nextLevels.some((value, index) => value !== levels[index])) {
-        try { commit(atoms, selection(), false, nextLevels); } catch (failure) { fail(failure.message); }
+      const nextStyles = styles.map((value, index) => chosen[index] ? style : value);
+      if (nextStyles.some((value, index) => value !== styles[index])) {
+        try { commit(atoms, selection(), false, nextStyles); } catch (failure) { fail(failure.message); }
       }
     } else if (valid) {
       const chosen = selectedAtoms();
@@ -226,15 +243,15 @@ export function mountFormattingEditor(root, options = {}) {
   try {
     const source = root.dataset.document || JSON.stringify(emptyDocument);
     if (new TextEncoder().encode(source).length > 32768) throw new Error('Document exceeds 32 KiB.');
-    const document = validateParagraphDocument(JSON.parse(source), true, Boolean(options.allowHeadings));
+    const document = validateParagraphDocument(JSON.parse(source), true, Boolean(options.allowHeadings), Boolean(options.allowLists));
     atoms = decode(document);
-    levels = document.blocks.map(block => block.type === 'heading' ? block.level : 0);
+    styles = document.blocks.map(blockStyle);
     initial = atoms;
-    initialLevels = levels;
+    initialStyles = styles;
     input.value = input.defaultValue = textOf(atoms);
     input.readOnly = false;
     initialized = true;
-    history = [{ atoms, levels, selection: [0, 0] }];
+    history = [{ atoms, styles, selection: [0, 0] }];
     render();
   } catch { fail('This document cannot be edited safely by this version. Original content was not changed.'); }
   input.addEventListener('input', update, listeners);
@@ -265,11 +282,20 @@ export function mountFormattingEditor(root, options = {}) {
   }, listeners);
   form?.addEventListener('reset', () => queueMicrotask(() => {
     if (!active || !initialized) return;
-    history = [{ atoms: initial, levels: initialLevels, selection: [0, 0] }];
+    history = [{ atoms: initial, styles: initialStyles, selection: [0, 0] }];
     cursor = 0;
     restore(history[0]);
   }), listeners);
-  const handle = { restoreView() { if (initialized) restore(history[cursor]); }, destroy() {
+  const handle = {
+    exitEmptyList() {
+      if (!valid || composing || options.isSuspended?.() || input.selectionStart !== input.selectionEnd) return false;
+      const lines = input.value.split('\n');
+      const index = input.value.slice(0, input.selectionStart).split('\n').length - 1;
+      if (lines[index] !== '' || !isList(styles[index])) return false;
+      command('paragraph');
+      return true;
+    },
+    restoreView() { if (initialized) restore(history[cursor]); }, destroy() {
     active = false;
     controller.abort();
     input.readOnly = true;

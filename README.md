@@ -49,7 +49,8 @@ paragraphs with bold/italic in place, reusing that model/history. Plain-text
 paste only; IME transaction handling has trusted Chromium protocol tests.
 Real OS/browser IME acceptance remains open. It is not integrated or published.
 RichTextEditor also supports H2/H3 text blocks with safe Rust rendering,
-block-style conversion and metadata-aware history. Lists and links remain planned.
+block-style conversion and metadata-aware history. Flat unordered/ordered lists
+are also supported; links and nested/task lists remain planned.
 
 ## Development
 

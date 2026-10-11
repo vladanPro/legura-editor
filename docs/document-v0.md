@@ -33,7 +33,19 @@ The current implementation supports paragraphs and headings with level 2 or 3:
 Paragraphs cannot carry a level; headings require an integer level of 2 or 3.
 H1 is reserved for the host page/post title. Missing/other levels and unknown
 fields are rejected. Rendering emits fixed h2/h3 tags with escaped text and
-the same inline marks. List and link schemas remain unimplemented.
+the same inline marks.
+
+Flat lists use consecutive item blocks, not nested documents:
+
+```json
+{"type":"list-item","list":"unordered","children":[{"text":"First item","marks":[]}]}
+```
+
+`list` must be `unordered` or `ordered`. Consecutive items with the same kind
+render as one ul/ol group, each with a fixed li. Kind changes or non-list blocks
+close the prior group. Each new ordered group starts normal HTML numbering at
+1. No depth, custom numbering, attributes or child blocks are accepted. Each
+item counts toward the same block/run/text/byte limits. Links remain unimplemented.
 V0 is a bounded tree, not arbitrary HTML or executable components.
 
 ## Trust Boundary
