@@ -1,0 +1,120 @@
+import assert from 'node:assert/strict';
+
+export async function checkHeadings(page, baseUrl) {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.goto(`${baseUrl}/examples/richtext.html`);
+  await page.waitForFunction(() => window.richtextHandle);
+  const surface = page.locator('#richtext [data-editor-preview]');
+  const field = page.locator('#richtext [data-editor-document]');
+  const blocks = async () => JSON.parse(await field.inputValue()).blocks;
+  const command = name => page.getByRole('button', { name, exact: true }).click();
+  const select = async (first, start, last = first, end = start) => surface.evaluate((node, args) => {
+    node.focus();
+    const point = (index, offset) => {
+      const block = node.children[index];
+      const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+      let text;
+      while ((text = walker.nextNode())) {
+        if (offset <= text.length) return [text, offset];
+        offset -= text.length;
+      }
+      return [block, 0];
+    };
+    const [first, start, last, end] = args;
+    const range = document.createRange();
+    range.setStart(...point(first, start)); range.setEnd(...point(last, end));
+    const selection = document.getSelection();
+    selection.removeAllRanges(); selection.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+  }, [first, start, last, end]);
+  await surface.focus();
+  await surface.pressSequentially('Title');
+  await select(0, 0, 0, 5);
+  await command('Bold');
+  await command('H2');
+  assert.equal(await surface.locator('h2 strong').textContent(), 'Title');
+  assert.equal((await blocks())[0].level, 2);
+  assert.equal(await page.getByRole('button', { name: 'H2', exact: true }).getAttribute('aria-pressed'), 'true');
+  await command('H3');
+  assert.equal(await surface.locator('h3 strong').textContent(), 'Title');
+  await surface.press('Control+z');
+  assert.equal((await blocks())[0].level, 2);
+  await surface.press('Control+Shift+z');
+  assert.equal((await blocks())[0].level, 3);
+  await command('Paragraph');
+  assert.equal(await surface.locator('p strong').textContent(), 'Title');
+  await surface.press('Control+z');
+  assert.equal((await blocks())[0].level, 3);
+  await select(0, 5);
+  await surface.press('Enter');
+  await surface.pressSequentially('Body');
+  let value = await blocks();
+  assert.equal(value[0].level, 3);
+  assert.equal(value[1].type, 'paragraph', 'Enter after a heading starts a plain paragraph');
+  await command('H2');
+  assert.equal((await blocks())[1].level, 2, 'A collapsed caret changes its current block');
+  await select(0, 1, 1, 2);
+  await command('H3');
+  assert.deepEqual((await blocks()).map(block => block.level), [3, 3]);
+  assert.equal(await surface.locator('h3 strong').textContent(), 'Title');
+  await surface.press('Control+z');
+  assert.deepEqual((await blocks()).map(block => block.level), [3, 2]);
+  await select(0, 5, 1, 2);
+  await surface.press('Backspace');
+  value = await blocks();
+  assert.equal(value.length, 1);
+  assert.equal(value[0].level, 3, 'Merging text blocks retains the first block style');
+  assert.equal(await surface.textContent(), 'Titledy');
+  await surface.press('Control+z');
+  assert.deepEqual((await blocks()).map(block => block.level), [3, 2]);
+  await select(0, 5);
+  await surface.evaluate(node => {
+    node.dispatchEvent(new CompositionEvent('compositionstart'));
+    node.dispatchEvent(new CompositionEvent('compositionend', { data: '語' }));
+  });
+  assert.equal(await surface.locator('h3 strong').textContent(), 'Title語');
+  assert.deepEqual((await blocks()).map(block => block.level), [3, 2]);
+  const saved = await field.inputValue();
+  await page.evaluate(async () => {
+    const root = document.querySelector('[data-legura-editor]');
+    root.dataset.document = root.querySelector('[data-editor-document]').value;
+    window.richtextHandle.destroy();
+    const { mountRichTextEditor } = await import('/src/js/rich-text-editor.js');
+    window.richtextHandle = mountRichTextEditor(root);
+  });
+  assert.equal(await field.inputValue(), saved);
+  if (process.env.EDITOR_HEADINGS_SCREENSHOT_PATH) await page.screenshot({ path: process.env.EDITOR_HEADINGS_SCREENSHOT_PATH });
+  await surface.focus();
+  await select(1, 0);
+  await command('Paragraph');
+  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  assert.equal(await field.inputValue(), saved, 'Reset restores initial heading metadata as well as text');
+  await select(0, 0, 1, 0);
+  await command('H2');
+  assert.deepEqual((await blocks()).map(block => block.level), [2, 2], 'Selection ending at the next block start must exclude that block');
+  await surface.press('Control+z');
+  await surface.press('Control+a');
+  await surface.press('Backspace');
+  assert.equal((await blocks())[0].level, 3);
+  assert.equal(await surface.locator('h3').count(), 1, 'An empty heading remains a valid editable block');
+  await surface.pressSequentially('New title');
+  assert.equal(await surface.locator('h3').textContent(), 'New title');
+  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  assert.equal(await field.inputValue(), saved);
+  await page.setViewportSize({ width: 320, height: 800 });
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+
+  await page.goto(`${baseUrl}/examples/formatting.html`);
+  await page.waitForFunction(() => window.formattingHandle);
+  await page.evaluate(async source => {
+    const root = document.querySelector('[data-legura-editor]');
+    window.formattingHandle.destroy();
+    root.dataset.document = source;
+    const { mountFormattingEditor } = await import('/src/js/formatting-editor.js');
+    window.formattingHandle = mountFormattingEditor(root);
+  }, saved);
+  assert.equal(await page.locator('[data-editor-document]').isDisabled(), true);
+  assert.equal(await page.locator('textarea').getAttribute('readonly'), '');
+  assert.equal(await page.locator('[data-legura-editor]').getAttribute('data-document'), saved);
+  console.log('Headings passed: H2/H3/paragraph conversion, marks, selection, history, split/merge, composition, reload/reset, mobile and legacy refusal.');
+}

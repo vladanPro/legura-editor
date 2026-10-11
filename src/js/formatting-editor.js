@@ -19,11 +19,13 @@ function decode(document) {
   return atoms;
 }
 
-function encode(atoms) {
+function encode(atoms, levels) {
   const blocks = [];
   let children = [];
   const finish = () => {
-    blocks.push({ type: 'paragraph', children: children.length ? children : [{ text: '', marks: [] }] });
+    const level = levels[blocks.length] || 0;
+    blocks.push({ type: level ? 'heading' : 'paragraph', ...(level ? { level } : {}),
+      children: children.length ? children : [{ text: '', marks: [] }] });
     children = [];
   };
   for (const [character, mask] of atoms) {
@@ -34,7 +36,8 @@ function encode(atoms) {
     else children.push({ text: character, marks: selected });
   }
   finish();
-  return validateParagraphDocument({ format: 'legura-richtext', version: 1, blocks }, true);
+  if (levels.length !== blocks.length) throw new Error('Block metadata does not match the document.');
+  return validateParagraphDocument({ format: 'legura-richtext', version: 1, blocks }, true, true);
 }
 
 export function mountFormattingEditor(root, options = {}) {
@@ -44,11 +47,14 @@ export function mountFormattingEditor(root, options = {}) {
   const error = root.querySelector('[data-editor-error]');
   const preview = root.querySelector('[data-editor-preview]');
   const buttons = Array.from(root.querySelectorAll('[data-editor-command]'));
-  if (!input || !field || !error || !preview || buttons.length !== 4) throw new Error('Incomplete formatting editor markup.');
+  const expected = options.allowHeadings ? ['bold', 'italic', 'undo', 'redo', 'paragraph', 'heading-2', 'heading-3'] : ['bold', 'italic', 'undo', 'redo'];
+  if (!input || !field || !error || !preview || buttons.length !== expected.length
+    || expected.some(command => buttons.filter(button => button.dataset.editorCommand === command).length !== 1)) throw new Error('Incomplete formatting editor markup.');
   const form = field.form;
   const controller = new AbortController();
   const listeners = { signal: controller.signal };
   let atoms = [];
+  let levels = [0];
   let history = [];
   let cursor = 0;
   let active = true;
@@ -56,6 +62,7 @@ export function mountFormattingEditor(root, options = {}) {
   let valid = false;
   let composing = false;
   let initial = [];
+  let initialLevels = [0];
   let beforeEdit = null;
   const selection = () => [input.selectionStart, input.selectionEnd];
   const selectedAtoms = () => {
@@ -67,6 +74,14 @@ export function mountFormattingEditor(root, options = {}) {
       return selected;
     });
   };
+  const selectedBlocks = () => {
+    const [start, end] = selection();
+    const text = textOf(atoms);
+    const first = text.slice(0, start).split('\n').length - 1;
+    // A selection ending at the next block's start does not include that block.
+    const last = text.slice(0, end > start ? end - 1 : end).split('\n').length - 1;
+    return levels.map((_, index) => index >= first && index <= last);
+  };
   const controls = () => {
     const chosen = selectedAtoms();
     for (const button of buttons) {
@@ -74,6 +89,12 @@ export function mountFormattingEditor(root, options = {}) {
       if (options.isSuspended?.()) button.disabled = true;
       else if (command === 'undo') button.disabled = !initialized || (valid && cursor === 0);
       else if (command === 'redo') button.disabled = !valid || cursor >= history.length - 1;
+      else if (command === 'paragraph' || command.startsWith('heading-')) {
+        const level = command === 'paragraph' ? 0 : Number(command.slice(-1));
+        const blocks = selectedBlocks();
+        button.disabled = !valid || composing;
+        button.setAttribute('aria-pressed', String(!button.disabled && levels.every((value, index) => !blocks[index] || value === level)));
+      }
       else {
         const mask = command === 'bold' ? 1 : 2;
         button.disabled = !valid || composing || !chosen.some(Boolean);
@@ -90,7 +111,7 @@ export function mountFormattingEditor(root, options = {}) {
     controls();
   };
   const render = () => {
-    const document = encode(atoms);
+    const document = encode(atoms, levels);
     field.value = JSON.stringify(document);
     field.disabled = false;
     valid = true;
@@ -99,7 +120,7 @@ export function mountFormattingEditor(root, options = {}) {
     error.textContent = '';
     const fragment = root.ownerDocument.createDocumentFragment();
     for (const block of document.blocks) {
-      const p = root.ownerDocument.createElement('p');
+      const p = root.ownerDocument.createElement(block.type === 'heading' ? `h${block.level}` : 'p');
       for (const run of block.children) {
         let node = root.ownerDocument.createTextNode(run.text);
         for (const tag of [...run.marks].reverse()) {
@@ -118,16 +139,18 @@ export function mountFormattingEditor(root, options = {}) {
   const restore = snapshot => {
     beforeEdit = null;
     atoms = snapshot.atoms;
+    levels = snapshot.levels;
     input.value = textOf(atoms);
     input.setSelectionRange(...snapshot.selection);
     render();
   };
-  const commit = (next, selected = selection(), keepPreviousSelection = false) => {
-    encode(next); // Validate before changing the model/history.
+  const commit = (next, selected = selection(), keepPreviousSelection = false, nextLevels = levels) => {
+    encode(next, nextLevels); // Validate before changing the model/history.
     if (!keepPreviousSelection) history[cursor].selection = selection();
     atoms = next;
+    levels = nextLevels;
     history = history.slice(0, cursor + 1);
-    history.push({ atoms, selection: selected });
+    history.push({ atoms, levels, selection: selected });
     // Bound history by snapshot count AND retained code points, not just steps.
     while (history.length > 50 || (history.length > 1 && history.reduce((sum, entry) => sum + entry.atoms.length, 0) > 100000)) history.shift();
     cursor = history.length - 1;
@@ -168,7 +191,11 @@ export function mountFormattingEditor(root, options = {}) {
     const inherited = prefix > 0 && before[prefix - 1] !== '\n' ? atoms[prefix - 1][1] : 0;
     const inserted = after.slice(prefix, after.length - suffix).map(character => [character, character === '\n' ? 0 : inherited]);
     const next = [...atoms.slice(0, prefix), ...inserted, ...atoms.slice(before.length - suffix)];
-    try { commit(next, selection(), true); } catch (failure) { fail(failure.message); }
+    const first = before.slice(0, prefix).filter(character => character === '\n').length;
+    const last = before.slice(0, before.length - suffix).filter(character => character === '\n').length;
+    const added = inserted.filter(atom => atom[0] === '\n').map(() => 0);
+    const nextLevels = [...levels.slice(0, first), levels[first], ...added, ...levels.slice(last + 1)];
+    try { commit(next, selection(), true, nextLevels); } catch (failure) { fail(failure.message); }
   };
   const command = name => {
     if (!initialized || composing || options.isSuspended?.()) return;
@@ -177,6 +204,13 @@ export function mountFormattingEditor(root, options = {}) {
       else if (cursor > 0) restore(history[--cursor]);
     } else if (name === 'redo') {
       if (valid && cursor < history.length - 1) restore(history[++cursor]);
+    } else if (valid && (name === 'paragraph' || name.startsWith('heading-'))) {
+      const level = name === 'paragraph' ? 0 : Number(name.slice(-1));
+      const chosen = selectedBlocks();
+      const nextLevels = levels.map((value, index) => chosen[index] ? level : value);
+      if (nextLevels.some((value, index) => value !== levels[index])) {
+        try { commit(atoms, selection(), false, nextLevels); } catch (failure) { fail(failure.message); }
+      }
     } else if (valid) {
       const chosen = selectedAtoms();
       if (!chosen.some(Boolean)) return;
@@ -192,13 +226,15 @@ export function mountFormattingEditor(root, options = {}) {
   try {
     const source = root.dataset.document || JSON.stringify(emptyDocument);
     if (new TextEncoder().encode(source).length > 32768) throw new Error('Document exceeds 32 KiB.');
-    const document = validateParagraphDocument(JSON.parse(source), true);
+    const document = validateParagraphDocument(JSON.parse(source), true, Boolean(options.allowHeadings));
     atoms = decode(document);
+    levels = document.blocks.map(block => block.type === 'heading' ? block.level : 0);
     initial = atoms;
+    initialLevels = levels;
     input.value = input.defaultValue = textOf(atoms);
     input.readOnly = false;
     initialized = true;
-    history = [{ atoms, selection: [0, 0] }];
+    history = [{ atoms, levels, selection: [0, 0] }];
     render();
   } catch { fail('This document cannot be edited safely by this version. Original content was not changed.'); }
   input.addEventListener('input', update, listeners);
@@ -229,7 +265,7 @@ export function mountFormattingEditor(root, options = {}) {
   }, listeners);
   form?.addEventListener('reset', () => queueMicrotask(() => {
     if (!active || !initialized) return;
-    history = [{ atoms: initial, selection: [0, 0] }];
+    history = [{ atoms: initial, levels: initialLevels, selection: [0, 0] }];
     cursor = 0;
     restore(history[0]);
   }), listeners);

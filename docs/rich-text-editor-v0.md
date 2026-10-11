@@ -1,6 +1,6 @@
 # Rich Text Editor V0
 
-An isolated in-place paragraph editor with bold/italic, plain-text paste and
+An isolated in-place paragraph/heading editor with bold/italic, plain-text paste and
 bounded undo/redo. This is a browser pilot, not a released CMS editor.
 
 ## Usage
@@ -26,7 +26,16 @@ Server-side Rust Document validation remains mandatory before any future write.
 
 ## Explicit Limits
 
-No headings, lists, links, pending-caret formatting, drag/drop or browser-native
+H2/H3/Paragraph controls change the selected blocks or the collapsed caret's
+current block, preserving text and marks. Selection ending at the next block's
+start excludes that next block. Block levels live alongside character atoms in
+bounded history, so undo/redo, reload and reset restore them too. Enter splits
+the current block and starts a paragraph; merging retains the first block's
+level. Multiline paste keeps the first block style and adds plain paragraphs.
+H1 is left to the host page/post title. ParagraphEditor and FormattingEditor
+refuse heading imports to prevent data loss.
+
+No lists, links, pending-caret formatting, drag/drop or browser-native
 editing menu support yet. Unsupported beforeinput operations are canceled.
 Typing inherits preceding marks as in FormattingEditor. IME composition now
 uses a transaction anchored to the original model selection. Native temporary

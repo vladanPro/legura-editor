@@ -2,6 +2,9 @@ component RichTextEditor(name = "content_document", label = "Content", document 
   return ASX {
     <div class="legura-editor" data-legura-editor="richtext" data-document={document}>
       <div class="legura-editor__toolbar" role="group" aria-label="Text formatting">
+        <button type="button" class="ax-button" data-editor-command="paragraph" aria-pressed="false" disabled="true">Paragraph</button>
+        <button type="button" class="ax-button" data-editor-command="heading-2" aria-pressed="false" disabled="true">H2</button>
+        <button type="button" class="ax-button" data-editor-command="heading-3" aria-pressed="false" disabled="true">H3</button>
         <button type="button" class="ax-button" data-editor-command="bold" aria-pressed="false" disabled="true">Bold</button>
         <button type="button" class="ax-button" data-editor-command="italic" aria-pressed="false" disabled="true">Italic</button>
         <button type="button" class="ax-button" data-editor-command="undo" disabled="true">Undo</button>

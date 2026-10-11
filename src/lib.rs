@@ -1,4 +1,4 @@
-//! Bounded paragraph/text documents. Rendering accepts only validated documents.
+//! Bounded text block documents. Rendering accepts only validated documents.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -18,6 +18,7 @@ pub enum DocumentError {
     TooMuchText,
     InvalidText,
     InvalidMarks,
+    InvalidHeadingLevel,
 }
 
 impl fmt::Display for DocumentError {
@@ -26,11 +27,12 @@ impl fmt::Display for DocumentError {
             Self::TooLarge => "Document exceeds the JSON byte limit",
             Self::InvalidStructure => "Invalid or unsupported document structure",
             Self::UnsupportedVersion => "Unsupported document version",
-            Self::InvalidBlockCount => "Document requires between 1 and 256 paragraphs",
-            Self::InvalidRunCount => "Each paragraph requires text; document run limit is 512",
+            Self::InvalidBlockCount => "Document requires between 1 and 256 text blocks",
+            Self::InvalidRunCount => "Each block requires text; document run limit is 512",
             Self::TooMuchText => "Document exceeds the text character limit",
             Self::InvalidText => "Document contains unsupported control characters",
             Self::InvalidMarks => "Text marks must be unique bold or italic values",
+            Self::InvalidHeadingLevel => "Heading level must be 2 or 3",
         })
     }
 }
@@ -42,7 +44,7 @@ impl std::error::Error for DocumentError {}
 struct RawDocument {
     format: Format,
     version: u32,
-    blocks: Vec<Paragraph>,
+    blocks: Vec<Block>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -52,17 +54,24 @@ enum Format {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Paragraph {
-    #[serde(rename = "type")]
-    kind: ParagraphKind,
-    children: Vec<TextRun>,
+#[serde(tag = "type", rename_all = "lowercase", deny_unknown_fields)]
+enum Block {
+    Paragraph { children: Vec<TextRun> },
+    Heading { level: u8, children: Vec<TextRun> },
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-enum ParagraphKind {
-    #[serde(rename = "paragraph")]
-    Paragraph,
+impl Block {
+    fn children(&self) -> &[TextRun] {
+        match self {
+            Self::Paragraph { children } | Self::Heading { children, .. } => children,
+        }
+    }
+
+    fn children_mut(&mut self) -> &mut [TextRun] {
+        match self {
+            Self::Paragraph { children } | Self::Heading { children, .. } => children,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -100,11 +109,14 @@ impl Document {
         let mut runs = 0;
         let mut chars = 0;
         for block in &mut raw.blocks {
-            runs += block.children.len();
-            if block.children.is_empty() || runs > MAX_RUNS {
+            if matches!(block, Block::Heading { level, .. } if !matches!(level, 2 | 3)) {
+                return Err(DocumentError::InvalidHeadingLevel);
+            }
+            runs += block.children().len();
+            if block.children().is_empty() || runs > MAX_RUNS {
                 return Err(DocumentError::InvalidRunCount);
             }
-            for run in &mut block.children {
+            for run in block.children_mut() {
                 if run.marks.len() > 2 || (run.marks.len() == 2 && run.marks[0] == run.marks[1]) {
                     return Err(DocumentError::InvalidMarks);
                 }
@@ -132,8 +144,13 @@ impl Document {
     pub fn render_html(&self) -> String {
         let mut html = String::new();
         for block in &self.0.blocks {
-            html.push_str("<p>");
-            for run in &block.children {
+            let (open, close) = match block {
+                Block::Paragraph { .. } => ("<p>", "</p>"),
+                Block::Heading { level: 2, .. } => ("<h2>", "</h2>"),
+                Block::Heading { .. } => ("<h3>", "</h3>"),
+            };
+            html.push_str(open);
+            for run in block.children() {
                 if run.marks.contains(&Mark::Bold) {
                     html.push_str("<strong>");
                 }
@@ -157,7 +174,7 @@ impl Document {
                     html.push_str("</strong>");
                 }
             }
-            html.push_str("</p>");
+            html.push_str(close);
         }
         html
     }
@@ -173,6 +190,51 @@ mod tests {
             {"type":"paragraph","children":[{"text":text,"marks":[]}]}
         ]})
         .to_string()
+    }
+
+    #[test]
+    fn headings_render_safely_and_round_trip() {
+        let raw = json!({"format":"legura-richtext","version":1,"blocks":[
+            {"type":"heading","level":2,"children":[{"text":"<Title>&","marks":["italic","bold"]}]},
+            {"type":"heading","level":3,"children":[{"text":"","marks":[]}]},
+            {"type":"paragraph","children":[{"text":"Body","marks":[]}]}
+        ]});
+        let doc = Document::parse_json(&raw.to_string()).unwrap();
+        let expected = "<h2><strong><em>&lt;Title&gt;&amp;</em></strong></h2><h3></h3><p>Body</p>";
+        assert_eq!(doc.render_html(), expected);
+        assert_eq!(
+            Document::parse_json(&doc.to_json().unwrap())
+                .unwrap()
+                .render_html(),
+            expected
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_heading_levels_and_fields() {
+        let heading =
+            json!({"type":"heading","level":2,"children":[{"text":"private","marks":[]}]});
+        for level in [0, 1, 4, 6, 255] {
+            let mut block = heading.clone();
+            block["level"] = json!(level);
+            let raw = json!({"format":"legura-richtext","version":1,"blocks":[block]});
+            assert_eq!(
+                Document::parse_json(&raw.to_string()).unwrap_err(),
+                DocumentError::InvalidHeadingLevel
+            );
+        }
+        for block in [
+            json!({"type":"heading","children":[{"text":"private","marks":[]}]}),
+            json!({"type":"heading","level":"2","children":[{"text":"private","marks":[]}]}),
+            json!({"type":"heading","level":-1,"children":[{"text":"private","marks":[]}]}),
+            json!({"type":"heading","level":2,"onclick":"evil()","children":[{"text":"private","marks":[]}]}),
+            json!({"type":"paragraph","level":2,"children":[{"text":"private","marks":[]}]}),
+        ] {
+            let raw = json!({"format":"legura-richtext","version":1,"blocks":[block]});
+            let error = Document::parse_json(&raw.to_string()).unwrap_err();
+            assert_eq!(error, DocumentError::InvalidStructure);
+            assert!(!error.to_string().contains("private"));
+        }
     }
 
     #[test]

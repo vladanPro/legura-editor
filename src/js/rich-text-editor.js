@@ -76,6 +76,7 @@ export function mountRichTextEditor(root) {
     return true;
   };
   handle = mountFormattingEditor(root, {
+    allowHeadings: true,
     isSuspended: () => composing,
     onRender: () => { if (document.activeElement === surface) restoreSelection(); },
     focus: () => { surface.focus(); restoreSelection(); },

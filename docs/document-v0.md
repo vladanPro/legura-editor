@@ -24,15 +24,23 @@ explicit storage integration is agreed and migrated.
 }
 ```
 
-The first implementation proves paragraph/text only. Heading, list and link
-schemas must be specified and tested before exposing their toolbar controls.
+The current implementation supports paragraphs and headings with level 2 or 3:
+
+```json
+{"type":"heading","level":2,"children":[{"text":"Section title","marks":["bold"]}]}
+```
+
+Paragraphs cannot carry a level; headings require an integer level of 2 or 3.
+H1 is reserved for the host page/post title. Missing/other levels and unknown
+fields are rejected. Rendering emits fixed h2/h3 tags with escaped text and
+the same inline marks. List and link schemas remain unimplemented.
 V0 is a bounded tree, not arbitrary HTML or executable components.
 
 ## Trust Boundary
 
 The server rejects unsupported versions/types/marks, unknown fields, malformed
 structures and excessive encoded bytes, nodes, depth or text lengths. Limits:
-32 KiB raw JSON, 1..256 paragraphs, 1 or more text runs per paragraph,
+32 KiB raw JSON, 1..256 text blocks, 1 or more text runs per block,
 512 total runs, and 20000 Unicode scalar values across all text. Empty text
 is allowed; control characters other than newline, carriage return and tab are
 rejected. Marks must be present and contain unique values from `bold` and
@@ -41,6 +49,9 @@ Order is normalized to bold then italic. Rendering uses fixed strong/em tags,
 closed before the next run; submitted text is always escaped. The wire version
 remains 1 for this unpublished additive slice. Older clients must refuse marks
 they cannot preserve rather than silently flattening formatted documents.
+The wire version also remains 1 for unpublished additive headings. Older
+server cores and paragraph/formatting clients must refuse unsupported headings;
+RichTextEditor is the first client that preserves them.
 There are no recursive block types. Serde's default recursion guard remains on.
 These core limits do not override the HTTP/form encoded request budget; Legura
 integration must check that boundary separately.
