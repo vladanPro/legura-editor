@@ -39,8 +39,10 @@ cargo clippy --locked --all-targets -- -D warnings
 `Document::parse_json` returns an immutable validated document. Only that
 document exposes `render_html`; there is no public unchecked constructor.
 The Rust core accepts unique bold/italic marks and renders fixed strong/em tags.
-The current textarea pilot still requires empty marks and refuses formatted
-documents to avoid data loss. A formatting-aware toolbar is not implemented yet.
+ParagraphEditor still requires empty marks and refuses formatted documents to
+avoid data loss. The new [FormattingEditor pilot](docs/formatting-editor-v0.md)
+supports selected bold/italic and document-aware history with a separate preview.
+It is not WYSIWYG or connected to Legura's database yet.
 
 ## Development
 

@@ -1,4 +1,5 @@
 import { ParagraphEditor } from "@/components/ParagraphEditor"
+import { FormattingEditor } from "@/components/FormattingEditor"
 
 page EditorPilot() {
   return ASX {
@@ -9,6 +10,9 @@ page EditorPilot() {
       </form>
       <form>
         <ParagraphEditor name="second_document" label="Second document" />
+      </form>
+      <form>
+        <FormattingEditor name="formatted_document" label="Formatted content" />
       </form>
     </section>
   }

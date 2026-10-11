@@ -33,6 +33,11 @@ safe strong/em rendering. Browser regression verifies the older textarea editor
 refuses formatted documents without altering the source. Formatting-aware
 selection, toolbar and undo history remain the next separate browser slice.
 
+FormattingEditor V0 now provides a selected-text toolbar and separate safe
+preview, with mark-aware bounded history, input/reset/teardown and IME submission
+protection. See formatting-editor-v0.md. In-place WYSIWYG, real IME matrix and
+server action/persistence integration remain future gates.
+
 ## 4. Legura Pilot
 
 Agree explicit content-format storage and migration policy. Integrate one
