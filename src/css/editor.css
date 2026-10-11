@@ -75,10 +75,35 @@
 .legura-editor[data-legura-editor="richtext"] .legura-editor__link-label {
   display: grid;
   gap: 0.25rem;
-  margin-top: 0.75rem;
   min-width: 0;
   font-size: 0.75rem;
 }
+.legura-editor__link-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  width: min(22rem, calc(100vw - 1rem));
+  max-height: calc(100vh - 1rem);
+  overflow: auto;
+  padding: 0.85rem;
+  border: 1px solid var(--ax-border, #525860);
+  border-radius: 0.5rem;
+  background: var(--ax-surface, #16191e);
+  color: var(--ax-text, #e8e5df);
+  box-shadow: 0 12px 32px #0005;
+}
+.legura-editor__link-actions { display: flex; gap: 0.5rem; margin-top: 0.65rem; }
+.legura-editor__link-actions button {
+  padding: 0.5rem 0.75rem;
+  min-height: 2.75rem;
+  color: inherit;
+  background: var(--ax-surface-2, #20252d);
+  border: 1px solid var(--ax-border, #525860);
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+.legura-editor__link-popover [data-editor-link-error] { margin: 0.5rem 0 0; font-size: 0.875rem; }
 .legura-editor[data-legura-editor="richtext"] > .legura-editor__surface,
 .legura-editor[data-legura-editor="richtext"] > .legura-editor__input {
   border-top: 0;

@@ -22,7 +22,7 @@ component RichTextEditor(name = "content_document", label = "Content", document 
         <button type="button" class="ax-button" data-editor-command="ordered-list" aria-label="Numbered" title="Numbered" aria-pressed="false" disabled="true"><OrderedListIcon /></button>
         <button type="button" class="ax-button" data-editor-command="bold" aria-label="Bold" title="Bold" aria-pressed="false" disabled="true"><BoldIcon /></button>
         <button type="button" class="ax-button" data-editor-command="italic" aria-label="Italic" title="Italic" aria-pressed="false" disabled="true"><ItalicIcon /></button>
-        <button type="button" class="ax-button" data-editor-command="link" aria-label="Apply link" title="Apply link" disabled="true"><LinkIcon /></button>
+        <button type="button" class="ax-button" data-editor-command="link" aria-label="Insert link" title="Insert link" aria-haspopup="dialog" aria-expanded="false" disabled="true"><LinkIcon /></button>
         <button type="button" class="ax-button" data-editor-command="unlink" aria-label="Remove link" title="Remove link" disabled="true"><UnlinkIcon /></button>
         <button type="button" class="ax-button" data-editor-command="undo" aria-label="Undo" title="Undo" disabled="true"><UndoIcon /></button>
         <button type="button" class="ax-button" data-editor-command="redo" aria-label="Redo" title="Redo" disabled="true"><RedoIcon /></button>
@@ -30,7 +30,14 @@ component RichTextEditor(name = "content_document", label = "Content", document 
       <textarea class="legura-editor__input" data-editor-input="true" aria-label={label} rows="12" readonly="true">{fallback}</textarea>
       <input type="hidden" name={name} data-editor-document="true" disabled="true" />
       <div class="legura-editor__preview legura-editor__surface" data-editor-preview="true" role="textbox" aria-label={label} aria-multiline="true" contenteditable="false" tabindex="0"></div>
-      <label class="legura-editor__link-label">Link address <input type="text" inputmode="url" data-editor-link="true" placeholder="https://example.com" disabled="true" /></label>
+      <div class="legura-editor__link-popover" data-editor-link-popover="true" popover="auto" role="dialog" aria-label="Insert link">
+        <label class="legura-editor__link-label">Link address <input type="text" inputmode="url" data-editor-link="true" placeholder="https://example.com" disabled="true" /></label>
+        <div class="legura-editor__link-actions">
+          <button type="button" class="ax-button" data-editor-link-apply="true" disabled="true">Apply link</button>
+          <button type="button" class="ax-button" data-editor-link-close="true">Cancel</button>
+        </div>
+        <p data-editor-link-error="true" role="status" aria-live="polite"></p>
+      </div>
       <p data-editor-error="true" role="status" aria-live="polite"></p>
       <noscript><p>Original content is read-only and will not be submitted.</p></noscript>
     </div>

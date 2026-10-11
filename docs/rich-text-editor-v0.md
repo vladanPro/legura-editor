@@ -9,9 +9,12 @@ RichTextEditor.asx accepts name, label, document (encoded JSON) and fallback.
 Its label precedes a joined toolbar/content frame. Eleven icon-only controls
 import native Foundry icons from @axonyx/ui/foundry/icons; aria-label and title
 preserve command names.
-Link address is entered below the writing surface; the toolbar applies or
-removes a link on the remembered text selection. Each selected range can carry
-its own address, and linked text is underlined.
+The Insert link icon opens a native top-layer popover next to the remembered
+text selection. Enter or Apply link commits the address; Escape, Cancel or an
+outside click dismisses it without changing the document. Each selected range
+can carry its own address, and linked text is underlined. Invalid addresses keep
+the popup open with a visible error. The popup closes on resize/scroll, reset,
+composition and teardown rather than remaining attached to stale coordinates.
 These icons require the new UI source assets, not the previously published UI
 package. No document, persistence or validation contract
 changes with this presentation.
