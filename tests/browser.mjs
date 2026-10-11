@@ -1,10 +1,9 @@
 // Test tooling only: reuse an explicitly supplied Playwright installation.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFile } from 'node:fs/promises';
-import { createServer } from 'node:http';
+import { mkdir } from 'node:fs/promises';
+import { createPilotServer } from './pilot-server.mjs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { checkFormatting } from './formatting-checks.mjs';
 import { checkRichText } from './richtext-checks.mjs';
 import { checkIme } from './ime-checks.mjs';
@@ -17,24 +16,7 @@ assert.ok(tooling, 'Pass the directory containing the test-only Playwright insta
 const engines = createRequire(resolve(tooling, 'package.json'))('playwright');
 const browserName = process.argv[3] || 'chromium';
 assert.ok(['chromium', 'firefox', 'webkit'].includes(browserName), 'Choose chromium, firefox or webkit');
-const root = fileURLToPath(new URL('../', import.meta.url));
-const files = new Map([
-  ['/examples/paragraphs.html', 'text/html'],
-  ['/examples/formatting.html', 'text/html'],
-  ['/examples/richtext.html', 'text/html'],
-  ['/src/js/rich-text-editor.js', 'text/javascript'],
-  ['/src/js/formatting-editor.js', 'text/javascript'],
-  ['/src/js/paragraph-editor.js', 'text/javascript'],
-  ['/src/css/editor.css', 'text/css'],
-]);
-const server = createServer(async (request, response) => {
-  const path = new URL(request.url, 'http://localhost').pathname;
-  if (!files.has(path)) { response.writeHead(404).end(); return; }
-  try {
-    const bytes = await readFile(resolve(root, '.' + path));
-    response.writeHead(200, { 'Content-Type': files.get(path) }).end(bytes);
-  } catch { response.writeHead(500).end(); }
-});
+const server = createPilotServer();
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 let browser;
 try {
@@ -119,6 +101,22 @@ try {
   await checkHeadings(page, `http://127.0.0.1:${server.address().port}`);
   await checkLists(page, `http://127.0.0.1:${server.address().port}`, browserName);
   await checkLinks(page, `http://127.0.0.1:${server.address().port}`);
+  await page.goto(`http://127.0.0.1:${server.address().port}/examples/richtext.html`);
+  const toolbar = page.locator('.legura-editor__toolbar');
+  assert.equal(await toolbar.locator('button svg').count(), 11);
+  assert.equal(await toolbar.getByRole('button', { name: 'Bold', exact: true }).count(), 1);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const tools = await toolbar.boundingBox();
+    const content = await page.locator('[data-editor-preview]').boundingBox();
+    assert.ok(Math.abs(tools.y + tools.height - content.y) <= 1, 'Toolbar must touch the content surface');
+    assert.equal(tools.width, content.width);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    if (process.env.EDITOR_SCREENSHOTS) {
+      await mkdir(process.env.EDITOR_SCREENSHOTS, { recursive: true });
+      await page.screenshot({ path: resolve(process.env.EDITOR_SCREENSHOTS, `toolbar-${browserName}-${width}.png`), fullPage: true });
+    }
+  }
   assert.deepEqual(errors, []);
   console.log(`${browserName} browser pilot passed: isolated instances, literal paste/input, JSON, limits/retry, reset, undo/redo, teardown, unsupported document refusal, mobile and no-JS fallback.`);
 } finally {

@@ -6,9 +6,21 @@ bounded undo/redo. This is a browser pilot, not a released CMS editor.
 ## Usage
 
 RichTextEditor.asx accepts name, label, document (encoded JSON) and fallback.
+Its label precedes a joined toolbar/content frame. Eleven icon-only controls
+import native Foundry icons from @axonyx/ui/foundry/icons; aria-label and title
+preserve command names. These icons require the new UI source assets, not the
+previously published UI package. No document, persistence or validation contract
+changes with this presentation.
 Load editor.css and rich-text-editor.js, then mountRichTextEditor(root).
 Call the returned destroy() when removing the component. Automatic Axonyx
 lifecycle/package integration and server persistence are not implemented yet.
+
+For an isolated local preview (no CMS database), check out the matching
+axonyx-ui source beside this repository, or set AXONYX_UI_SOURCE to its path,
+then run node examples/serve.mjs. Open
+http://127.0.0.1:3947/examples/richtext.html.
+This preview uses a deliberately limited fixture projection, not an Axonyx
+compiler. Native imports must also be checked with the actual Axonyx CLI.
 
 The adapter reuses FormattingEditor's validated character/mark model and
 history. Its textarea is hidden only after successful initialization. The
