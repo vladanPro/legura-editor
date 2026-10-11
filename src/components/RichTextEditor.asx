@@ -26,11 +26,11 @@ component RichTextEditor(name = "content_document", label = "Content", document 
         <button type="button" class="ax-button" data-editor-command="unlink" aria-label="Remove link" title="Remove link" disabled="true"><UnlinkIcon /></button>
         <button type="button" class="ax-button" data-editor-command="undo" aria-label="Undo" title="Undo" disabled="true"><UndoIcon /></button>
         <button type="button" class="ax-button" data-editor-command="redo" aria-label="Redo" title="Redo" disabled="true"><RedoIcon /></button>
-        <label class="legura-editor__link-label">Link address <input type="text" inputmode="url" data-editor-link="true" placeholder="https://example.com" disabled="true" /></label>
       </div>
       <textarea class="legura-editor__input" data-editor-input="true" aria-label={label} rows="12" readonly="true">{fallback}</textarea>
       <input type="hidden" name={name} data-editor-document="true" disabled="true" />
       <div class="legura-editor__preview legura-editor__surface" data-editor-preview="true" role="textbox" aria-label={label} aria-multiline="true" contenteditable="false" tabindex="0"></div>
+      <label class="legura-editor__link-label">Link address <input type="text" inputmode="url" data-editor-link="true" placeholder="https://example.com" disabled="true" /></label>
       <p data-editor-error="true" role="status" aria-live="polite"></p>
       <noscript><p>Original content is read-only and will not be submitted.</p></noscript>
     </div>

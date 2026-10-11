@@ -8,6 +8,9 @@ export async function checkLinks(page, baseUrl) {
   const surface = page.locator('[data-editor-preview]');
   const field = page.locator('[data-editor-document]');
   const address = page.getByRole('textbox', { name: 'Link address' });
+  const contentBox = await surface.boundingBox();
+  const addressBox = await address.boundingBox();
+  assert.ok(addressBox.y >= contentBox.y + contentBox.height, 'Link address belongs below the content');
   const command = name => page.getByRole('button', { name, exact: true }).click();
   const doc = async () => JSON.parse(await field.inputValue());
   const select = async (start, end = start) => surface.evaluate((node, [start, end]) => {
@@ -35,6 +38,7 @@ export async function checkLinks(page, baseUrl) {
   await command('Apply link');
   assert.equal(await surface.locator('a strong').textContent(), 'Read');
   assert.equal(await surface.locator('a').getAttribute('href'), 'https://example.com/?a=1&b="quoted"');
+  assert.equal(await surface.locator('a').evaluate(node => getComputedStyle(node).textDecorationLine.includes('underline')), true);
   const linked = await field.inputValue();
   await command('Undo');
   assert.equal(await surface.locator('a').count(), 0);

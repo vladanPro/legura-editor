@@ -8,8 +8,12 @@ bounded undo/redo. This is a browser pilot, not a released CMS editor.
 RichTextEditor.asx accepts name, label, document (encoded JSON) and fallback.
 Its label precedes a joined toolbar/content frame. Eleven icon-only controls
 import native Foundry icons from @axonyx/ui/foundry/icons; aria-label and title
-preserve command names. These icons require the new UI source assets, not the
-previously published UI package. No document, persistence or validation contract
+preserve command names.
+Link address is entered below the writing surface; the toolbar applies or
+removes a link on the remembered text selection. Each selected range can carry
+its own address, and linked text is underlined.
+These icons require the new UI source assets, not the previously published UI
+package. No document, persistence or validation contract
 changes with this presentation.
 Load editor.css and rich-text-editor.js, then mountRichTextEditor(root).
 Call the returned destroy() when removing the component. Automatic Axonyx

@@ -73,7 +73,10 @@
 .legura-editor[data-legura-editor="richtext"] .legura-editor__toolbar button:disabled { cursor: default; }
 .legura-editor[data-legura-editor="richtext"] .ax-icon { width: 1.2rem; height: 1.2rem; flex: none; pointer-events: none; }
 .legura-editor[data-legura-editor="richtext"] .legura-editor__link-label {
-  flex: 1 1 14rem;
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+  min-width: 0;
   font-size: 0.75rem;
 }
 .legura-editor[data-legura-editor="richtext"] > .legura-editor__surface,
