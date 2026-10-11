@@ -16,6 +16,8 @@ export function mountRichTextEditor(root) {
   let handle;
   let active = true;
   let composing = false;
+  let compositionSelection = null;
+  let pointerDown = false;
 
   const point = offset => {
     const paragraphs = Array.from(surface.children);
@@ -61,6 +63,7 @@ export function mountRichTextEditor(root) {
     return null;
   };
   const syncSelection = () => {
+    if (composing) return false;
     const selection = document.getSelection();
     if (!selection?.rangeCount) return false;
     const range = selection.getRangeAt(0);
@@ -73,6 +76,7 @@ export function mountRichTextEditor(root) {
     return true;
   };
   handle = mountFormattingEditor(root, {
+    isSuspended: () => composing,
     onRender: () => { if (document.activeElement === surface) restoreSelection(); },
     focus: () => { surface.focus(); restoreSelection(); },
   });
@@ -81,11 +85,9 @@ export function mountRichTextEditor(root) {
     input.hidden = true;
     surface.setAttribute('contenteditable', 'true');
   }
-  const replace = (text, type = 'insertText') => {
-    if (!initialized || composing || !syncSelection()) return;
+  const applyText = (text, start, end, type = 'insertText') => {
+    input.setSelectionRange(start, end);
     input.dispatchEvent(new InputEvent('beforeinput', { inputType: type, bubbles: true }));
-    const start = input.selectionStart;
-    const end = input.selectionEnd;
     input.setRangeText(text, start, end, 'end');
     input.dispatchEvent(new InputEvent('input', { inputType: type, bubbles: true }));
     if (field.disabled) {
@@ -94,7 +96,14 @@ export function mountRichTextEditor(root) {
     }
     restoreSelection();
   };
+  const replace = (text, type = 'insertText') => {
+    if (!initialized || composing || !syncSelection()) return;
+    applyText(text, input.selectionStart, input.selectionEnd, type);
+  };
   surface.addEventListener('beforeinput', event => {
+    // IME owns its temporary DOM until compositionend. Do not destroy its range.
+    if (initialized && (composing || event.isComposing
+      || ['insertCompositionText', 'deleteCompositionText', 'insertFromComposition'].includes(event.inputType))) return;
     event.preventDefault();
     if (!initialized || !syncSelection()) return;
     const type = event.inputType;
@@ -131,19 +140,42 @@ export function mountRichTextEditor(root) {
       key: event.key, ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey,
     }));
   }, listeners);
-  // Native IME can mutate contenteditable even after beforeinput cancellation.
-  // Refuse this pilot operation and restore the validated model, never submit that DOM.
   surface.addEventListener('compositionstart', () => {
+    if (!initialized || composing || !syncSelection()) return;
+    compositionSelection = [input.selectionStart, input.selectionEnd];
     composing = true;
     field.disabled = true;
-    surface.setAttribute('contenteditable', 'false');
-    error.textContent = 'IME composition is not supported by this pilot. Use the paragraph editor.';
+    for (const button of root.querySelectorAll('[data-editor-command]')) button.disabled = true;
+    error.textContent = 'Finish composing before submitting.';
   }, listeners);
-  surface.addEventListener('compositionend', () => {
+  const finishComposition = text => {
+    if (!composing) return;
+    const selected = compositionSelection;
     composing = false;
+    compositionSelection = null;
+    // Discard temporary native markup; commit only event.data at the original range.
     handle.restoreView();
-    if (initialized) surface.setAttribute('contenteditable', 'true');
-    error.textContent = 'IME composition was not applied; the original document is preserved.';
+    if (text && selected) applyText(text.replace(/\r\n?/g, '\n'), ...selected);
+  };
+  surface.addEventListener('compositionend', event => finishComposition(event.data), listeners);
+  surface.addEventListener('blur', () => {
+    // Give native compositionend a chance to commit before recovering lost focus.
+    // During a pointer click, wait until click/default action has completed: changing
+    // the status height between pointerdown and pointerup can move the target away.
+    queueMicrotask(() => { if (active && composing && !pointerDown) finishComposition(''); });
+  }, listeners);
+  document.addEventListener('pointerdown', () => { pointerDown = true; }, listeners);
+  const releasePointer = () => {
+    pointerDown = false;
+    setTimeout(() => {
+      if (active && composing && document.activeElement !== surface) finishComposition('');
+    }, 0);
+  };
+  document.addEventListener('pointerup', releasePointer, listeners);
+  document.addEventListener('pointercancel', releasePointer, listeners);
+  field.form?.addEventListener('reset', () => {
+    composing = false;
+    compositionSelection = null;
   }, listeners);
   surface.addEventListener('input', () => { if (!composing) handle.restoreView(); }, listeners);
   field.form?.addEventListener('submit', event => {

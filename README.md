@@ -46,7 +46,8 @@ It is not WYSIWYG or connected to Legura's database yet.
 
 The new [RichTextEditor pilot](docs/rich-text-editor-v0.md) displays and edits
 paragraphs with bold/italic in place, reusing that model/history. Plain-text
-paste only; IME is explicitly unsupported. It is not integrated or published.
+paste only; IME transaction handling has trusted Chromium protocol tests.
+Real OS/browser IME acceptance remains open. It is not integrated or published.
 
 ## Development
 

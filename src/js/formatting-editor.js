@@ -71,7 +71,8 @@ export function mountFormattingEditor(root, options = {}) {
     const chosen = selectedAtoms();
     for (const button of buttons) {
       const command = button.dataset.editorCommand;
-      if (command === 'undo') button.disabled = !initialized || (valid && cursor === 0);
+      if (options.isSuspended?.()) button.disabled = true;
+      else if (command === 'undo') button.disabled = !initialized || (valid && cursor === 0);
       else if (command === 'redo') button.disabled = !valid || cursor >= history.length - 1;
       else {
         const mask = command === 'bold' ? 1 : 2;
@@ -170,7 +171,7 @@ export function mountFormattingEditor(root, options = {}) {
     try { commit(next, selection(), true); } catch (failure) { fail(failure.message); }
   };
   const command = name => {
-    if (!initialized || composing) return;
+    if (!initialized || composing || options.isSuspended?.()) return;
     if (name === 'undo') {
       if (!valid) restore(history[cursor]);
       else if (cursor > 0) restore(history[--cursor]);
