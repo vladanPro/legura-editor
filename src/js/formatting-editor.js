@@ -37,7 +37,7 @@ function encode(atoms) {
   return validateParagraphDocument({ format: 'legura-richtext', version: 1, blocks }, true);
 }
 
-export function mountFormattingEditor(root) {
+export function mountFormattingEditor(root, options = {}) {
   if (instances.has(root)) return instances.get(root);
   const input = root.querySelector('[data-editor-input]');
   const field = root.querySelector('[data-editor-document]');
@@ -112,6 +112,7 @@ export function mountFormattingEditor(root) {
     }
     preview.replaceChildren(fragment);
     controls();
+    options.onRender?.();
   };
   const restore = snapshot => {
     beforeEdit = null;
@@ -183,7 +184,8 @@ export function mountFormattingEditor(root) {
       const next = atoms.map((atom, index) => chosen[index] ? [atom[0], remove ? atom[1] & ~mask : atom[1] | mask] : atom);
       try { commit(next); } catch (failure) { fail(failure.message); }
     }
-    input.focus();
+    if (options.focus) options.focus();
+    else input.focus();
     controls();
   };
   try {
@@ -230,7 +232,7 @@ export function mountFormattingEditor(root) {
     cursor = 0;
     restore(history[0]);
   }), listeners);
-  const handle = { destroy() {
+  const handle = { restoreView() { if (initialized) restore(history[cursor]); }, destroy() {
     active = false;
     controller.abort();
     input.readOnly = true;

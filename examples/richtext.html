@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Legura rich-text pilot</title>
+  <link rel="stylesheet" href="../src/css/editor.css">
+  <style>body { background: #101317; color: #e8e5df; margin: 0; font-family: Georgia, serif; } main { max-width: 52rem; margin: 2rem auto; padding: 1rem; } pre { white-space: pre-wrap; overflow-wrap: anywhere; }</style>
+</head>
+<body><main>
+  <h1>Rich-text pilot</h1>
+  <p>Paragraphs with selected bold/italic. Plain-text paste only. No database writes. IME is not supported yet.</p>
+  <form id="richtext">
+    <div class="legura-editor" data-legura-editor="richtext">
+      <div class="legura-editor__toolbar" role="group" aria-label="Text formatting">
+        <button type="button" data-editor-command="bold" aria-pressed="false" disabled>Bold</button>
+        <button type="button" data-editor-command="italic" aria-pressed="false" disabled>Italic</button>
+        <button type="button" data-editor-command="undo" disabled>Undo</button>
+        <button type="button" data-editor-command="redo" disabled>Redo</button>
+      </div>
+      <label class="legura-editor__label"><span>Content</span><textarea data-editor-input class="legura-editor__input" readonly></textarea></label>
+      <input type="hidden" name="content_document" data-editor-document disabled>
+      <div class="legura-editor__preview legura-editor__surface" data-editor-preview role="textbox" aria-label="Content" aria-multiline="true" contenteditable="false" tabindex="0"></div>
+      <p data-editor-error role="status" aria-live="polite"></p>
+      <noscript>Original content is read-only and will not be submitted.</noscript>
+    </div>
+    <button type="reset">Reset</button>
+  </form>
+</main><script type="module">
+  import { mountRichTextEditor } from '../src/js/rich-text-editor.js';
+  window.richtextHandle = mountRichTextEditor(document.querySelector('[data-legura-editor]'));
+</script></body></html>

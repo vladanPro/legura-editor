@@ -44,6 +44,10 @@ avoid data loss. The new [FormattingEditor pilot](docs/formatting-editor-v0.md)
 supports selected bold/italic and document-aware history with a separate preview.
 It is not WYSIWYG or connected to Legura's database yet.
 
+The new [RichTextEditor pilot](docs/rich-text-editor-v0.md) displays and edits
+paragraphs with bold/italic in place, reusing that model/history. Plain-text
+paste only; IME is explicitly unsupported. It is not integrated or published.
+
 ## Development
 
 Feature branches target `dev`; release PRs move `dev` into `main`. Keep source

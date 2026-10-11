@@ -6,6 +6,7 @@ import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkFormatting } from './formatting-checks.mjs';
+import { checkRichText } from './richtext-checks.mjs';
 
 const tooling = process.argv[2];
 assert.ok(tooling, 'Pass the directory containing the test-only Playwright install');
@@ -14,6 +15,8 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const files = new Map([
   ['/examples/paragraphs.html', 'text/html'],
   ['/examples/formatting.html', 'text/html'],
+  ['/examples/richtext.html', 'text/html'],
+  ['/src/js/rich-text-editor.js', 'text/javascript'],
   ['/src/js/formatting-editor.js', 'text/javascript'],
   ['/src/js/paragraph-editor.js', 'text/javascript'],
   ['/src/css/editor.css', 'text/css'],
@@ -99,8 +102,12 @@ try {
   assert.equal(await fallback.locator('[data-editor-document]:enabled').count(), 0);
   assert.equal(await fallback.locator('[data-editor-command]:enabled').count(), 0);
   assert.equal(await fallback.locator('textarea:not([readonly])').count(), 0);
+  await fallback.goto(`http://127.0.0.1:${server.address().port}/examples/richtext.html`);
+  assert.equal(await fallback.locator('[contenteditable="true"]').count(), 0);
+  assert.equal(await fallback.locator('[data-editor-document]:enabled').count(), 0);
   await noJs.close();
   await checkFormatting(page, `http://127.0.0.1:${server.address().port}`);
+  await checkRichText(page, `http://127.0.0.1:${server.address().port}`);
   assert.deepEqual(errors, []);
   console.log('Paragraph browser pilot passed: isolated instances, literal paste/input, JSON, limits/retry, reset, undo/redo, teardown, unsupported document refusal, mobile and no-JS fallback.');
 } finally {
