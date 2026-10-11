@@ -9,6 +9,7 @@ import { checkFormatting } from './formatting-checks.mjs';
 import { checkRichText } from './richtext-checks.mjs';
 import { checkIme } from './ime-checks.mjs';
 import { checkHeadings } from './headings-checks.mjs';
+import { checkLists } from './lists-checks.mjs';
 
 const tooling = process.argv[2];
 assert.ok(tooling, 'Pass the directory containing the test-only Playwright install');
@@ -115,6 +116,7 @@ try {
   if (browserName === 'chromium') await checkIme(page, `http://127.0.0.1:${server.address().port}`);
   else console.log(`${browserName}: native CDP IME checks are Chromium-only; physical IME coverage remains open.`);
   await checkHeadings(page, `http://127.0.0.1:${server.address().port}`);
+  await checkLists(page, `http://127.0.0.1:${server.address().port}`, browserName);
   assert.deepEqual(errors, []);
   console.log(`${browserName} browser pilot passed: isolated instances, literal paste/input, JSON, limits/retry, reset, undo/redo, teardown, unsupported document refusal, mobile and no-JS fallback.`);
 } finally {

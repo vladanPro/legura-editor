@@ -1,6 +1,6 @@
 # Rich Text Editor V0
 
-An isolated in-place paragraph/heading editor with bold/italic, plain-text paste and
+An isolated in-place paragraph/heading/flat-list editor with bold/italic, plain-text paste and
 bounded undo/redo. This is a browser pilot, not a released CMS editor.
 
 ## Usage
@@ -12,7 +12,7 @@ lifecycle/package integration and server persistence are not implemented yet.
 
 The adapter reuses FormattingEditor's validated character/mark model and
 history. Its textarea is hidden only after successful initialization. The
-contenteditable surface displays fixed paragraph/strong/em tags from that
+contenteditable surface displays fixed text-block, list and strong/em tags from that
 model; it is never treated as an HTML source to store or publish. Browser
 selection offsets map to the model's UTF-16 selection, including paragraph
 separators. Input, Enter, scalar deletion, selected formatting and clipboard
@@ -28,14 +28,23 @@ Server-side Rust Document validation remains mandatory before any future write.
 
 H2/H3/Paragraph controls change the selected blocks or the collapsed caret's
 current block, preserving text and marks. Selection ending at the next block's
-start excludes that next block. Block levels live alongside character atoms in
+start excludes that next block. Block styles live alongside character atoms in
 bounded history, so undo/redo, reload and reset restore them too. Enter splits
 the current block and starts a paragraph; merging retains the first block's
-level. Multiline paste keeps the first block style and adds plain paragraphs.
+style. Multiline paste keeps the first block style; added blocks are paragraphs
+unless the insertion is inside a list, where they continue the same list kind.
 H1 is left to the host page/post title. ParagraphEditor and FormattingEditor
-refuse heading imports to prevent data loss.
+refuse heading/list imports to prevent data loss.
 
-No lists, links, pending-caret formatting, drag/drop or browser-native
+Bullets/Numbered controls convert selected blocks or the caret's current block.
+Flat list items form one ul/ol for each consecutive run of the same kind.
+Enter in a nonempty item starts another item. Enter on an empty item changes it
+to a paragraph without adding another block, as one undoable style change.
+Changing an item to a heading/paragraph splits the list into separate groups.
+Selection offsets count item separators even though the DOM wraps items in a
+list container. No nested lists, indentation, custom start numbers or task lists.
+
+No links, pending-caret formatting, drag/drop or browser-native
 editing menu support yet. Unsupported beforeinput operations are canceled.
 Typing inherits preceding marks as in FormattingEditor. IME composition now
 uses a transaction anchored to the original model selection. Native temporary

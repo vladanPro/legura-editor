@@ -43,4 +43,6 @@
 .legura-editor__surface h2, .legura-editor__surface h3 { margin: 0 0 0.6rem; min-height: 1.5em; white-space: pre-wrap; }
 .legura-editor__surface h2 { font-size: 1.5rem; }
 .legura-editor__surface h3 { font-size: 1.2rem; }
+.legura-editor__surface ul, .legura-editor__surface ol { margin: 0 0 0.6rem; padding-left: 1.6rem; }
+.legura-editor__surface li { min-height: 1.5em; white-space: pre-wrap; }
 .legura-editor [hidden] { display: none; }

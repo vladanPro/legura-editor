@@ -1,7 +1,7 @@
 const instances = new WeakMap();
 const encoder = new TextEncoder();
 
-export function validateParagraphDocument(document, allowMarks = false, allowHeadings = false) {
+export function validateParagraphDocument(document, allowMarks = false, allowHeadings = false, allowLists = false) {
   const exact = (object, keys) => object && typeof object === 'object' && !Array.isArray(object)
     && Object.keys(object).length === keys.length && keys.every(key => Object.hasOwn(object, key));
   if (!exact(document, ['format', 'version', 'blocks']) || document.format !== 'legura-richtext'
@@ -13,7 +13,9 @@ export function validateParagraphDocument(document, allowMarks = false, allowHea
     const paragraph = exact(block, ['type', 'children']) && block.type === 'paragraph';
     const heading = allowHeadings && exact(block, ['type', 'level', 'children'])
       && block.type === 'heading' && [2, 3].includes(block.level);
-    if ((!paragraph && !heading) || !Array.isArray(block.children) || !block.children.length) throw new Error('Unsupported text block.');
+    const item = allowLists && exact(block, ['type', 'list', 'children'])
+      && block.type === 'list-item' && ['unordered', 'ordered'].includes(block.list);
+    if ((!paragraph && !heading && !item) || !Array.isArray(block.children) || !block.children.length) throw new Error('Unsupported text block.');
     runs += block.children.length;
     if (runs > 512) throw new Error('Too many text runs.');
     for (const run of block.children) {

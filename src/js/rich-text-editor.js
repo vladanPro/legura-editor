@@ -20,7 +20,7 @@ export function mountRichTextEditor(root) {
   let pointerDown = false;
 
   const point = offset => {
-    const paragraphs = Array.from(surface.children);
+    const paragraphs = Array.from(surface.querySelectorAll('[data-editor-block]'));
     let remaining = offset;
     for (let index = 0; index < paragraphs.length; index++) {
       const paragraph = paragraphs[index];
@@ -49,9 +49,11 @@ export function mountRichTextEditor(root) {
   };
   const readOffset = (node, offset) => {
     let total = 0;
-    const paragraphs = Array.from(surface.children);
-    if (node === surface) return paragraphs.slice(0, offset).reduce((sum, p) => sum + p.textContent.length + 1, 0);
+    const paragraphs = Array.from(surface.querySelectorAll('[data-editor-block]'));
     for (const paragraph of paragraphs) {
+      const blockRange = document.createRange();
+      blockRange.selectNodeContents(paragraph);
+      if (blockRange.comparePoint(node, offset) === -1) return total;
       if (paragraph === node || paragraph.contains(node)) {
         const range = document.createRange();
         range.selectNodeContents(paragraph);
@@ -60,7 +62,7 @@ export function mountRichTextEditor(root) {
       }
       total += paragraph.textContent.length + 1;
     }
-    return null;
+    return Math.min(total, input.value.length);
   };
   const syncSelection = () => {
     if (composing) return false;
@@ -77,6 +79,7 @@ export function mountRichTextEditor(root) {
   };
   handle = mountFormattingEditor(root, {
     allowHeadings: true,
+    allowLists: true,
     isSuspended: () => composing,
     onRender: () => { if (document.activeElement === surface) restoreSelection(); },
     focus: () => { surface.focus(); restoreSelection(); },
@@ -109,7 +112,9 @@ export function mountRichTextEditor(root) {
     if (!initialized || !syncSelection()) return;
     const type = event.inputType;
     if (type === 'insertText' || type === 'insertReplacementText') replace(event.data || '', type);
-    else if (type === 'insertParagraph' || type === 'insertLineBreak') replace('\n', 'insertText');
+    else if (type === 'insertParagraph' || type === 'insertLineBreak') {
+      if (!handle.exitEmptyList()) replace('\n', 'insertText');
+    }
     else if (type === 'deleteContentBackward' || type === 'deleteContentForward') {
       const start = input.selectionStart;
       const end = input.selectionEnd;
