@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkFormatting } from './formatting-checks.mjs';
 import { checkRichText } from './richtext-checks.mjs';
+import { checkIme } from './ime-checks.mjs';
 
 const tooling = process.argv[2];
 assert.ok(tooling, 'Pass the directory containing the test-only Playwright install');
@@ -108,6 +109,7 @@ try {
   await noJs.close();
   await checkFormatting(page, `http://127.0.0.1:${server.address().port}`);
   await checkRichText(page, `http://127.0.0.1:${server.address().port}`);
+  await checkIme(page, `http://127.0.0.1:${server.address().port}`);
   assert.deepEqual(errors, []);
   console.log('Paragraph browser pilot passed: isolated instances, literal paste/input, JSON, limits/retry, reset, undo/redo, teardown, unsupported document refusal, mobile and no-JS fallback.');
 } finally {

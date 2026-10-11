@@ -28,10 +28,19 @@ Server-side Rust Document validation remains mandatory before any future write.
 
 No headings, lists, links, pending-caret formatting, drag/drop or browser-native
 editing menu support yet. Unsupported beforeinput operations are canceled.
-Typing inherits preceding marks as in FormattingEditor. IME composition is
-explicitly unsupported: submission is blocked during composition and the last
-valid model is restored afterwards. Use ParagraphEditor when IME is required.
-Do not integrate this pilot as the only production input until that gap closes.
+Typing inherits preceding marks as in FormattingEditor. IME composition now
+uses a transaction anchored to the original model selection. Native temporary
+DOM is left alone during composition, while submission/toolbar commands are
+blocked. On compositionend, only the committed event.data replaces that range;
+temporary native markup is discarded and the result is validated normally.
+The entire composition is one undo step. Cancellation preserves original text.
+Limits, reset, lost-focus recovery and teardown preserve the validated model.
+Pointer-driven blur recovery waits until the click finishes so status changes
+cannot move the clicked control between pointerdown and pointerup.
+
+Trusted Chromium CDP composition/update/commit/cancel tests pass. This does NOT
+prove physical Windows/macOS/Linux IMEs, mobile keyboards, Firefox or WebKit.
+Do not claim production IME coverage until that separate acceptance is completed.
 
 No-JS/invalid imports are read-only with disabled submission; omitted content
 must never mean deletion. No DB change, autosave, collaboration or package release.
@@ -41,5 +50,10 @@ must never mean deletion. No DB change, autosave, collaboration or package relea
 Run node tests/browser.mjs ../legura with an existing test-only Playwright install.
 Chromium checks cover actual typing/Enter/deletion, selected in-place marks,
 keyboard history, emoji, plain-text malicious paste, document reload, over-limit
-rejection, unexpected DOM recovery, reset, synthetic IME refusal, mobile width,
-teardown and no-JS. This is not a cross-browser/real-IME/accessibility audit.
+rejection, unexpected DOM recovery, reset, mobile width, teardown and no-JS.
+IME tests use trusted Input.imeSetComposition and Input.insertText via CDP,
+plus synthetic boundary tests for limits, literal text, reset/blur and teardown.
+This is not a cross-browser/physical-IME/accessibility audit.
+
+References: [compositionend](https://developer.mozilla.org/en-US/docs/Web/API/Element/compositionend_event)
+and [Chromium Input protocol](https://chromedevtools.github.io/devtools-protocol/tot/Input/).
