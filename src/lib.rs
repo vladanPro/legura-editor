@@ -217,6 +217,22 @@ impl Document {
         serde_json::to_string(&self.0)
     }
 
+    /// Search/legacy projection, not a rich-text editing or persistence fallback.
+    pub fn plain_text(&self) -> String {
+        self.0
+            .blocks
+            .iter()
+            .map(|block| {
+                block
+                    .children()
+                    .iter()
+                    .map(|run| run.text.as_str())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
     /// Fixed tags plus escaped text only; no submitted attributes or raw HTML.
     pub fn render_html(&self) -> String {
         let mut html = String::new();
@@ -297,6 +313,20 @@ mod tests {
             {"type":"paragraph","children":[{"text":text,"marks":[]}]}
         ]})
         .to_string()
+    }
+
+    #[test]
+    fn plain_text_projection_preserves_text_and_block_boundaries() {
+        let raw = json!({"format":"legura-richtext","version":1,"blocks":[
+            {"type":"heading","level":2,"children":[{"text":"Title","marks":["bold"]}]},
+            {"type":"list-item","list":"unordered","children":[{"text":"🙂<literal>","marks":[],"link":"https://example.com"}]},
+            {"type":"paragraph","children":[{"text":"","marks":[]}]},
+            {"type":"paragraph","children":[{"text":"First ","marks":[]},{"text":"second","marks":["italic"]}]}
+        ]}).to_string();
+        assert_eq!(
+            Document::parse_json(&raw).unwrap().plain_text(),
+            "Title\n🙂<literal>\n\nFirst second"
+        );
     }
 
     #[test]
