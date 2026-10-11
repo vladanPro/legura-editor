@@ -117,6 +117,22 @@ try {
   else console.log(`${browserName}: native CDP IME checks are Chromium-only; physical IME coverage remains open.`);
   await checkHeadings(page, `http://127.0.0.1:${server.address().port}`);
   await checkLists(page, `http://127.0.0.1:${server.address().port}`, browserName);
+  // The server contract precedes link editing. Existing clients must refuse it.
+  await page.goto(`http://127.0.0.1:${server.address().port}/examples/richtext.html`);
+  await page.waitForFunction(() => window.richtextHandle);
+  const linkedSource = JSON.stringify({ format: 'legura-richtext', version: 1, blocks: [
+    { type: 'paragraph', children: [{ text: 'Keep this link', marks: ['bold'], link: 'https://example.com' }] },
+  ] });
+  await page.evaluate(async source => {
+    window.richtextHandle.destroy();
+    const root = document.querySelector('[data-legura-editor="richtext"]');
+    root.dataset.document = source;
+    const { mountRichTextEditor } = await import('/src/js/rich-text-editor.js');
+    window.richtextHandle = mountRichTextEditor(root);
+  }, linkedSource);
+  assert.equal(await page.locator('[data-editor-document]').isDisabled(), true);
+  assert.equal(await page.locator('[data-editor-preview]').getAttribute('contenteditable'), 'false');
+  assert.equal(await page.locator('[data-legura-editor="richtext"]').getAttribute('data-document'), linkedSource);
   assert.deepEqual(errors, []);
   console.log(`${browserName} browser pilot passed: isolated instances, literal paste/input, JSON, limits/retry, reset, undo/redo, teardown, unsupported document refusal, mobile and no-JS fallback.`);
 } finally {

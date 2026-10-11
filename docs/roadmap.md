@@ -60,6 +60,12 @@ Chromium native IME is also tested inside an item. Nested/task lists are deferre
 
 ## 4. Legura Pilot
 
+Safe Link Contract V0 is implemented in Rust: optional bounded run destinations,
+parsed HTTP/HTTPS only, no credentials, escaped fixed anchor rendering and no
+remote fetching. Browser clients deliberately reject linked imports until the
+next slice implements selected link editing/removal, history and safe selection.
+Local paths, target controls and automatic link detection remain deferred.
+
 Agree explicit content-format storage and migration policy. Integrate one
 versioned editor package into create/edit/preview/public rendering. Validate on
 the server before writes. Prove setup/auth remain unchanged, rejected input
