@@ -1,7 +1,17 @@
 const instances = new WeakMap();
 const encoder = new TextEncoder();
 
-export function validateParagraphDocument(document, allowMarks = false, allowHeadings = false, allowLists = false) {
+export function validateLink(link) {
+  if (typeof link !== 'string' || !/^https?:\/\//.test(link)
+    || encoder.encode(link).length > 2048 || /[\s\u0000-\u001f\u007f-\u009f\\]/u.test(link)) throw new Error('Use an absolute HTTP or HTTPS URL without credentials (maximum 2048 bytes).');
+  const authority = link.split('://')[1].split(/[/?#]/)[0];
+  let url;
+  try { url = new URL(link); } catch { throw new Error('Invalid link address.'); }
+  if (!authority || authority.includes('@') || !url.hostname || url.username || url.password) throw new Error('Invalid link address.');
+  return link;
+}
+
+export function validateParagraphDocument(document, allowMarks = false, allowHeadings = false, allowLists = false, allowLinks = false) {
   const exact = (object, keys) => object && typeof object === 'object' && !Array.isArray(object)
     && Object.keys(object).length === keys.length && keys.every(key => Object.hasOwn(object, key));
   if (!exact(document, ['format', 'version', 'blocks']) || document.format !== 'legura-richtext'
@@ -19,10 +29,15 @@ export function validateParagraphDocument(document, allowMarks = false, allowHea
     runs += block.children.length;
     if (runs > 512) throw new Error('Too many text runs.');
     for (const run of block.children) {
-      if (!exact(run, ['text', 'marks']) || typeof run.text !== 'string'
+      const linked = allowLinks && exact(run, ['text', 'marks', 'link']);
+      if ((!exact(run, ['text', 'marks']) && !linked) || typeof run.text !== 'string'
         || !Array.isArray(run.marks) || (!allowMarks && run.marks.length)
         || run.marks.length > 2 || new Set(run.marks).size !== run.marks.length
         || run.marks.some(mark => !['bold', 'italic'].includes(mark))) throw new Error('Unsupported text or formatting.');
+      if (linked) {
+        validateLink(run.link);
+        if (!run.text.length) throw new Error('This editor cannot preserve empty linked runs.');
+      }
       for (const character of run.text) {
         const code = character.codePointAt(0);
         if ((code < 32 && ![9, 10, 13].includes(code)) || (code >= 127 && code <= 159)

@@ -9,6 +9,9 @@ component RichTextEditor(name = "content_document", label = "Content", document 
         <button type="button" class="ax-button" data-editor-command="ordered-list" aria-pressed="false" disabled="true">Numbered</button>
         <button type="button" class="ax-button" data-editor-command="bold" aria-pressed="false" disabled="true">Bold</button>
         <button type="button" class="ax-button" data-editor-command="italic" aria-pressed="false" disabled="true">Italic</button>
+        <label>Link address <input type="text" inputmode="url" data-editor-link="true" placeholder="https://example.com" disabled="true" /></label>
+        <button type="button" class="ax-button" data-editor-command="link" disabled="true">Apply link</button>
+        <button type="button" class="ax-button" data-editor-command="unlink" disabled="true">Remove link</button>
         <button type="button" class="ax-button" data-editor-command="undo" disabled="true">Undo</button>
         <button type="button" class="ax-button" data-editor-command="redo" disabled="true">Redo</button>
       </div>

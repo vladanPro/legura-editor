@@ -66,9 +66,9 @@ uses fixed `rel="nofollow ugc"`, and opens in the same browsing context.
 No target, event attributes, automatic fetching or remote preview is accepted.
 This is not phishing protection or a destination reputation check.
 
-This first slice implements server validation/rendering only. Existing browser
-editors reject linked documents without flattening them; link editing and
-history-preserving selection are the next slice. Wire version remains 1 because
+RichTextEditor now preserves linked runs with selected apply/remove controls and
+history; ParagraphEditor and FormattingEditor reject linked documents instead
+of flattening them. Wire version remains 1 because
 the package is unpublished; old server cores reject the new run field as well.
 
 ## Trust Boundary

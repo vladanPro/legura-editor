@@ -45,7 +45,7 @@ composition/update/commit/cancel tests with one-step history and guarded submit.
 Chromium/Firefox/WebKit browser suites now cover the shared editing path,
 including cross-paragraph cut/history and independent instances. Clipboard
 fixtures are synthetic; native CDP IME remains Chromium-only. Physical OS/mobile
-IME and clipboard QA, links and persistence remain open gates.
+IME and clipboard QA and persistence remain open gates.
 
 Headings V0 adds strict H2/H3 document blocks, escaped Rust h2/h3 rendering,
 Paragraph/H2/H3 controls, selected-block conversion and metadata-aware history.
@@ -62,8 +62,8 @@ Chromium native IME is also tested inside an item. Nested/task lists are deferre
 
 Safe Link Contract V0 is implemented in Rust: optional bounded run destinations,
 parsed HTTP/HTTPS only, no credentials, escaped fixed anchor rendering and no
-remote fetching. Browser clients deliberately reject linked imports until the
-next slice implements selected link editing/removal, history and safe selection.
+remote fetching. RichTextEditor now implements selected link editing/removal,
+history and safe selection. Older paragraph/formatting clients reject links.
 Local paths, target controls and automatic link detection remain deferred.
 
 Agree explicit content-format storage and migration policy. Integrate one

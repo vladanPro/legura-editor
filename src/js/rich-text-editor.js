@@ -80,6 +80,7 @@ export function mountRichTextEditor(root) {
   handle = mountFormattingEditor(root, {
     allowHeadings: true,
     allowLists: true,
+    allowLinks: true,
     isSuspended: () => composing,
     onRender: () => { if (document.activeElement === surface) restoreSelection(); },
     focus: () => { surface.focus(); restoreSelection(); },
@@ -152,6 +153,7 @@ export function mountRichTextEditor(root) {
     composing = true;
     field.disabled = true;
     for (const button of root.querySelectorAll('[data-editor-command]')) button.disabled = true;
+    root.querySelector('[data-editor-link]').disabled = true;
     error.textContent = 'Finish composing before submitting.';
   }, listeners);
   const finishComposition = text => {
@@ -189,6 +191,7 @@ export function mountRichTextEditor(root) {
   }, listeners);
   document.addEventListener('selectionchange', syncSelection, listeners);
   root.addEventListener('click', event => {
+    if (event.target.closest('a') && surface.contains(event.target)) event.preventDefault();
     if (composing && event.target.closest('[data-editor-command]')) {
       event.preventDefault();
       event.stopImmediatePropagation();

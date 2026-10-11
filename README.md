@@ -51,8 +51,9 @@ Real OS/browser IME acceptance remains open. It is not integrated or published.
 RichTextEditor also supports H2/H3 text blocks with safe Rust rendering,
 block-style conversion and metadata-aware history. Flat unordered/ordered lists
 are also supported; nested/task lists remain planned. Safe HTTP/HTTPS links now
-have a server-only validation/rendering contract. Browser link controls are not
-implemented yet; existing clients refuse linked documents instead of losing links.
+have a validated Rust rendering contract and selected Apply link/Remove link
+controls in RichTextEditor. Older paragraph/formatting clients refuse linked
+documents instead of losing links. No automatic detection or remote preview.
 
 ## Development
 
