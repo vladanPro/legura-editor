@@ -10,6 +10,7 @@ import { checkIme } from './ime-checks.mjs';
 import { checkHeadings } from './headings-checks.mjs';
 import { checkLists } from './lists-checks.mjs';
 import { checkLinks } from './links-checks.mjs';
+import { checkNativeRetry } from './retry-checks.mjs';
 
 const tooling = process.argv[2];
 assert.ok(tooling, 'Pass the directory containing the test-only Playwright install');
@@ -101,6 +102,7 @@ try {
   await checkHeadings(page, `http://127.0.0.1:${server.address().port}`);
   await checkLists(page, `http://127.0.0.1:${server.address().port}`, browserName);
   await checkLinks(page, `http://127.0.0.1:${server.address().port}`);
+  await checkNativeRetry(page, `http://127.0.0.1:${server.address().port}`);
   await page.goto(`http://127.0.0.1:${server.address().port}/examples/richtext.html`);
   const toolbar = page.locator('.legura-editor__toolbar');
   assert.equal(await toolbar.locator('button svg').count(), 11);

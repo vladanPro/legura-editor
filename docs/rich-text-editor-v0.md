@@ -123,3 +123,23 @@ links, target options, link detection, popup preview or drag/drop in V0.
 Three-engine tests use synthetic IME/clipboard fixtures for linked text, not a
 claim of physical OS/mobile IME or system clipboard acceptance. The existing
 trusted Chromium CDP IME tests cover the shared editor transaction engine.
+
+## Native Validation Retry V0
+
+RichTextEditor uses a hidden disabled textarea for its document transport, with
+`data-ax-retain-disabled="true"`. The containing application form must explicitly
+allowlist the document name in `data-ax-retain-fields`; the component alone does
+not enable server replay. A runtime with Disabled Textarea Replay support marks
+native 422 input `data-ax-retained="true"` and keeps the control disabled.
+
+On mount, marked retained JSON takes precedence over the stored data-document.
+It passes the same browser document validation and limits. Successful recovery
+becomes the initial model for reset/history/remount; the consumed marker is
+removed. Invalid retained input stays disabled and preserved, not silently
+replaced by stored data. Server validation is still mandatory on every save.
+Without JS, document submission stays disabled and the plain fallback is read-only.
+
+Three-engine browser checks cover recovered marks/link/literal HTML-like text,
+reset, malformed/over-limit refusal and no fallback to stale content. Real CMS
+native navigation/422/retry remains the application acceptance gate. Runtime
+replay support and this editor source have not been published as new packages.
