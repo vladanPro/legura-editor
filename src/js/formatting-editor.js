@@ -279,9 +279,17 @@ export function mountFormattingEditor(root, options = {}) {
     controls();
   };
   try {
-    const source = root.dataset.document || JSON.stringify(emptyDocument);
+    // A native validation retry can carry unsaved input distinct from stored data.
+    const hasRecovery = field.dataset.axRetainDisabled === 'true' && field.dataset.axRetained === 'true';
+    const recovered = hasRecovery ? field.value : '';
+    const source = recovered || root.dataset.document || JSON.stringify(emptyDocument);
     if (new TextEncoder().encode(source).length > 32768) throw new Error('Document exceeds 32 KiB.');
     const document = validateParagraphDocument(JSON.parse(source), true, Boolean(options.allowHeadings), Boolean(options.allowLists), Boolean(options.allowLinks));
+    if (field.dataset.axRetainDisabled === 'true') field.defaultValue = JSON.stringify(document);
+    if (hasRecovery) {
+      root.dataset.document = JSON.stringify(document);
+      delete field.dataset.axRetained;
+    }
     atoms = decode(document);
     styles = document.blocks.map(blockStyle);
     initial = atoms;
