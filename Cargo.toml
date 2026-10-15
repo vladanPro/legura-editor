@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2021"
 publish = false
 description = "Experimental validated document core for Legura Editor"
+include = ["src/**", "Cargo.toml", "README.md", "docs/**"]
 
 [dependencies]
 url = "2.5"

@@ -1,4 +1,5 @@
 //! Bounded text block documents. Rendering accepts only validated documents.
+pub mod assets;
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
