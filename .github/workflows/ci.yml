@@ -6,6 +6,18 @@ on:
 permissions:
   contents: read
 jobs:
+  source-format:
+    name: Axonyx Source Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-axonyx --git https://github.com/vladanPro/axonyx-framework --rev b528d920d74db54fe3685e986953bbec9b2c93d0 --force
+      - run: bash scripts/format-sources.sh --check
+      - name: Check staged-source hook safety
+        shell: pwsh
+        run: ./scripts/test-format-hook.ps1 -FormatterPath (Get-Command cargo-ax).Source
   document-core:
     name: Document Core
     runs-on: ubuntu-latest

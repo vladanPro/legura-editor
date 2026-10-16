@@ -30,6 +30,29 @@ The first browser slice is documented in [Paragraph Editor V0](docs/paragraph-ed
 
 ## Core Checks
 
+### ASX Source Formatting
+
+```bash
+bash scripts/format-sources.sh
+bash scripts/format-sources.sh --check
+git config --local core.hooksPath .githooks
+```
+
+These commands use the shared compiler-owned Axonyx formatter for native
+components and the ASX example, not embedded JS/CSS. CI pins the source revision
+until this formatter is released. `AXONYX_FORMATTER` selects a local development
+executable; the staged-source hook also supports `git config --local
+axonyx.formatterPath /absolute/path/to/cargo-ax`. It checks the staged index only
+and never rewrites or auto-stages working files. Disable the hook with
+`git config --local --unset core.hooksPath`. VS Code format-on-save is configured.
+
+Even whitespace changes alter embedded component asset bytes. Consuming Legura
+applications stay pinned to their current editor revision; adoption requires
+the normal asset-generation/manifest verification. Formatting does not upgrade
+a live CMS or its database.
+
+### Rust Checks
+
 ```sh
 cargo test --locked
 cargo fmt --all -- --check
