@@ -8,7 +8,9 @@ component ParagraphEditor(name = "content_document", label = "Content", document
       <input type="hidden" name={name} data-editor-document="true" disabled="true" />
       <p class="legura-editor__hint">One line per paragraph. Plain text only in this version.</p>
       <p data-editor-error="true" role="status" aria-live="polite"></p>
-      <noscript><p>Rich-text editing requires JavaScript. Content is read-only; nothing will be submitted by this editor.</p></noscript>
+      <noscript>
+        <p>Rich-text editing requires JavaScript. Content is read-only; nothing will be submitted by this editor.</p>
+      </noscript>
     </div>
   }
 }
