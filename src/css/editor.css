@@ -42,7 +42,8 @@
 .legura-editor__preview { border: 1px solid var(--ax-border, #525860); padding: 1rem; overflow-wrap: anywhere; }
 .legura-editor__preview p { min-height: 1.5em; white-space: pre-wrap; }
 .legura-editor__surface { min-height: 16rem; border-radius: 0.5rem; background: var(--ax-surface, #16191e); }
-.legura-editor__surface:focus-visible { outline: 2px solid var(--ax-primary, #c5a76a); outline-offset: 2px; }
+.legura-editor .legura-editor__surface:focus { outline: none; border-color: var(--ax-primary, #c5a76a); }
+.legura-editor[data-legura-editor="richtext"]:has(> .legura-editor__surface:focus) > .legura-editor__toolbar { border-color: var(--ax-primary, #c5a76a); }
 .legura-editor__surface p { margin: 0 0 0.6rem; }
 .legura-editor__surface h2, .legura-editor__surface h3 { margin: 0 0 0.6rem; min-height: 1.5em; white-space: pre-wrap; }
 .legura-editor__surface h2 { font-size: 1.5rem; }

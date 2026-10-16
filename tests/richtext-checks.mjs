@@ -6,6 +6,23 @@ export async function checkRichText(page, baseUrl) {
   await page.waitForFunction(() => window.richtextHandle);
   const surface = page.locator('#richtext [data-editor-preview]');
   const field = page.locator('#richtext [data-editor-document]');
+  const appearance = () => surface.evaluate(node => {
+    const style = getComputedStyle(node);
+    const toolbar = getComputedStyle(node.parentElement.querySelector('.legura-editor__toolbar'));
+    const bounds = node.getBoundingClientRect();
+    return { border: style.borderLeftColor, toolbar: toolbar.borderLeftColor, outline: style.outlineStyle, shadow: style.boxShadow, width: bounds.width, height: bounds.height };
+  });
+  const resting = await appearance();
+  await surface.focus();
+  const focused = await appearance();
+  assert.equal(focused.outline, 'none', 'Content focus should recolor its border, not add an outer frame');
+  assert.equal(focused.shadow, 'none');
+  assert.notEqual(focused.border, resting.border);
+  assert.equal(focused.toolbar, focused.border, 'Joined toolbar must share the focused border');
+  assert.equal(focused.width, resting.width);
+  assert.equal(focused.height, resting.height);
+  await surface.evaluate(node => node.blur());
+  assert.equal((await appearance()).border, resting.border);
   const text = async () => JSON.parse(await field.inputValue()).blocks.map(block => block.children.map(run => run.text).join('')).join('\n');
   const select = async (start, end) => {
     await surface.evaluate((node, [start, end]) => {
